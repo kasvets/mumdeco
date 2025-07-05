@@ -1,0 +1,27 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --primary: #4c1d95;
+  --secondary: #ec4899;
+}
+
+body {
+  @apply min-h-screen flex flex-col bg-gray-50;
+}
+
+.container {
+  @apply max-w-7xl mx-auto;
+}
+
+.btn-primary {
+  @apply bg-purple-900 text-white px-6 py-2 rounded-full 
+         hover:bg-purple-800 transition duration-300;
+}
+
+.btn-secondary {
+  @apply bg-pink-500 text-white px-6 py-2 rounded-full 
+         hover:bg-pink-600 transition duration-300;
+}
+    
