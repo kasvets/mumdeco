@@ -1,10 +1,20 @@
 import { createClient } from '@supabase/supabase-js'
+import { supabaseConfig, canUseSupabase, handleEnvError } from './env'
 
-// Supabase konfigürasyonu
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+// Create Supabase client with error handling
+export const supabase = (() => {
+  try {
+    if (!canUseSupabase()) {
+      console.warn('Supabase not properly configured, using fallback');
+      return createClient(supabaseConfig.url, supabaseConfig.anonKey);
+    }
+    return createClient(supabaseConfig.url, supabaseConfig.anonKey);
+  } catch (error) {
+    handleEnvError(error, 'Supabase initialization');
+    // Return a mock client for build compatibility
+    return createClient('https://example.supabase.co', 'dummy-key');
+  }
+})();
 
 // Database types
 export type Database = {
@@ -89,95 +99,131 @@ export type ProductInsert = Database['public']['Tables']['products']['Insert']
 export type ProductUpdate = Database['public']['Tables']['products']['Update']
 export type Category = Database['public']['Tables']['categories']['Row']
 
-// Fetch functions
+// Fetch functions with error handling
 export async function fetchProducts(): Promise<Product[]> {
-  const { data, error } = await supabase
-    .from('products')
-    .select('*')
-    .order('created_at', { ascending: false })
+  try {
+    const { data, error } = await supabase
+      .from('products')
+      .select('*')
+      .order('created_at', { ascending: false })
 
-  if (error) {
-    console.error('Error fetching products:', error)
-    throw error
+    if (error) {
+      console.error('Error fetching products:', error)
+      handleEnvError(error, 'fetchProducts')
+      return []
+    }
+
+    return data || []
+  } catch (error) {
+    handleEnvError(error, 'fetchProducts')
+    return []
   }
-
-  return data || []
 }
 
 export async function fetchProductById(id: string): Promise<Product | null> {
-  const { data, error } = await supabase
-    .from('products')
-    .select('*')
-    .eq('id', id)
-    .single()
+  try {
+    const { data, error } = await supabase
+      .from('products')
+      .select('*')
+      .eq('id', id)
+      .single()
 
-  if (error) {
-    console.error('Error fetching product:', error)
-    throw error
+    if (error) {
+      console.error('Error fetching product:', error)
+      handleEnvError(error, 'fetchProductById')
+      return null
+    }
+
+    return data
+  } catch (error) {
+    handleEnvError(error, 'fetchProductById')
+    return null
   }
-
-  return data
 }
 
 export async function fetchProductsByCategory(category: string): Promise<Product[]> {
-  const { data, error } = await supabase
-    .from('products')
-    .select('*')
-    .eq('category', category)
-    .order('created_at', { ascending: false })
+  try {
+    const { data, error } = await supabase
+      .from('products')
+      .select('*')
+      .eq('category', category)
+      .order('created_at', { ascending: false })
 
-  if (error) {
-    console.error('Error fetching products by category:', error)
-    throw error
+    if (error) {
+      console.error('Error fetching products by category:', error)
+      handleEnvError(error, 'fetchProductsByCategory')
+      return []
+    }
+
+    return data || []
+  } catch (error) {
+    handleEnvError(error, 'fetchProductsByCategory')
+    return []
   }
-
-  return data || []
 }
 
 export async function fetchNewProducts(): Promise<Product[]> {
-  const { data, error } = await supabase
-    .from('products')
-    .select('*')
-    .eq('is_new', true)
-    .order('created_at', { ascending: false })
-    .limit(10)
+  try {
+    const { data, error } = await supabase
+      .from('products')
+      .select('*')
+      .eq('is_new', true)
+      .order('created_at', { ascending: false })
+      .limit(10)
 
-  if (error) {
-    console.error('Error fetching new products:', error)
-    throw error
+    if (error) {
+      console.error('Error fetching new products:', error)
+      handleEnvError(error, 'fetchNewProducts')
+      return []
+    }
+
+    return data || []
+  } catch (error) {
+    handleEnvError(error, 'fetchNewProducts')
+    return []
   }
-
-  return data || []
 }
 
 export async function fetchFeaturedProducts(): Promise<Product[]> {
-  const { data, error } = await supabase
-    .from('products')
-    .select('*')
-    .eq('in_stock', true)
-    .order('rating', { ascending: false })
-    .limit(10)
+  try {
+    const { data, error } = await supabase
+      .from('products')
+      .select('*')
+      .eq('in_stock', true)
+      .order('rating', { ascending: false })
+      .limit(10)
 
-  if (error) {
-    console.error('Error fetching featured products:', error)
-    throw error
+    if (error) {
+      console.error('Error fetching featured products:', error)
+      handleEnvError(error, 'fetchFeaturedProducts')
+      return []
+    }
+
+    return data || []
+  } catch (error) {
+    handleEnvError(error, 'fetchFeaturedProducts')
+    return []
   }
-
-  return data || []
 }
 
 export async function fetchCategories(): Promise<Category[]> {
-  const { data, error } = await supabase
-    .from('categories')
-    .select('*')
-    .order('name', { ascending: true })
+  try {
+    const { data, error } = await supabase
+      .from('categories')
+      .select('*')
+      .order('name', { ascending: true })
 
-  if (error) {
-    console.error('Error fetching categories:', error)
-    throw error
+    if (error) {
+      console.error('Error fetching categories:', error)
+      handleEnvError(error, 'fetchCategories')
+      return []
+    }
+
+    return data || []
+  } catch (error) {
+    handleEnvError(error, 'fetchCategories')
+    return []
   }
-
-  return data || []
 }
 
 // Storage helper functions
