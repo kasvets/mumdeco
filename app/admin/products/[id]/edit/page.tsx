@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { supabase, Product, ProductUpdate, uploadProductImage } from '@/lib/supabase';
+import { supabase, Product, ProductUpdate, uploadProductImage, fetchProductImages, deleteProductImage, fetchOrphanedImages } from '@/lib/supabase';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 
@@ -22,8 +22,50 @@ export default function EditProduct() {
   const [fetching, setFetching] = useState(true);
   const [imageUploading, setImageUploading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-  const [previewUrls, setPreviewUrls] = useState<string[]>([]);
+  // selectedFiles ve previewUrls artık gereksiz - direkt storage'a yükleme yapıyoruz
+  const [existingImages, setExistingImages] = useState<string[]>([]);
+  const [deletingImages, setDeletingImages] = useState<string[]>([]);
+  const [orphanedImages, setOrphanedImages] = useState<{url: string, filename: string}[]>([]);
+  const [assigningImages, setAssigningImages] = useState<string[]>([]);
+  
+  // Modal state
+  const [modal, setModal] = useState<{
+    isOpen: boolean;
+    type: 'success' | 'error' | 'warning' | 'info';
+    title: string;
+    message: string;
+    showPositiveImage?: boolean;
+  }>({
+    isOpen: false,
+    type: 'info',
+    title: '',
+    message: '',
+    showPositiveImage: false
+  });
+
+  // Confirmation modal state
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    onCancel: () => void;
+    confirmText?: string;
+    cancelText?: string;
+    isDangerous?: boolean;
+    showNegativeImage?: boolean;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+    onCancel: () => {},
+    confirmText: 'Evet',
+    cancelText: 'Hayır',
+    isDangerous: false,
+    showNegativeImage: false
+  });
+
   const router = useRouter();
   const params = useParams();
   const productId = params.id as string;
@@ -42,6 +84,8 @@ export default function EditProduct() {
   useEffect(() => {
     if (productId) {
       fetchProduct();
+      fetchExistingImages();
+      fetchOrphanedImagesData();
     }
   }, [productId]);
 
@@ -69,10 +113,138 @@ export default function EditProduct() {
       }
     } catch (error) {
       console.error('Ürün yüklenirken hata:', error);
-      alert('Ürün bulunamadı!');
-      router.push('/admin/products');
+      showModal('error', 'Hata!', 'Ürün bulunamadı! Ana sayfaya yönlendiriliyorsunuz...');
+      setTimeout(() => {
+        router.push('/admin/products');
+      }, 2000);
     } finally {
       setFetching(false);
+    }
+  };
+
+  const fetchExistingImages = async () => {
+    try {
+      const images = await fetchProductImages(productId);
+      setExistingImages(images);
+    } catch (error) {
+      console.error('Mevcut görseller yüklenirken hata:', error);
+    }
+  };
+
+  const fetchOrphanedImagesData = async () => {
+    try {
+      const images = await fetchOrphanedImages();
+      setOrphanedImages(images);
+    } catch (error) {
+      console.error('Sahipsiz görseller yüklenirken hata:', error);
+    }
+  };
+
+  const handleDeleteExistingImage = async (imageUrl: string) => {
+    const deleteAction = async () => {
+      setDeletingImages(prev => [...prev, imageUrl]);
+      await performDeleteImage(imageUrl);
+    };
+
+    showConfirmModal(
+      'Görseli Sil',
+      'Bu görseli silmek istediğinizden emin misiniz?',
+      deleteAction,
+      { 
+        confirmText: 'Sil', 
+        cancelText: 'İptal', 
+        isDangerous: true,
+        showNegativeImage: true
+      }
+    );
+  };
+
+  const performDeleteImage = async (imageUrl: string) => {
+
+    try {
+      const success = await deleteProductImage(imageUrl);
+      if (success) {
+        setExistingImages(prev => prev.filter(url => url !== imageUrl));
+        
+        // Eğer silinen görsel ana görsel ise, mevcut görseller arasından yeni bir ana görsel seç
+        if (formData.image_url === imageUrl) {
+          const remainingImages = existingImages.filter(url => url !== imageUrl);
+          if (remainingImages.length > 0) {
+            setFormData(prev => ({ 
+              ...prev, 
+              image_url: remainingImages[0] 
+            }));
+          } else {
+            // Hiç görsel kalmadıysa database'deki image_url'i de temizle
+            setFormData(prev => ({ 
+              ...prev, 
+              image_url: '' 
+            }));
+            // Database'i de güncelle
+            await supabase
+              .from('products')
+              .update({ image_url: '' })
+              .eq('id', productId);
+          }
+        }
+        
+        showModal('success', 'Başarılı!', 'Görsel başarıyla silindi!', true);
+      } else {
+        showModal('error', 'Hata!', 'Görsel silinirken hata oluştu!');
+      }
+    } catch (error) {
+      console.error('Görsel silinirken hata:', error);
+      showModal('error', 'Hata!', 'Görsel silinirken hata oluştu!');
+    } finally {
+      setDeletingImages(prev => prev.filter(url => url !== imageUrl));
+    }
+  };
+
+  const clearMainImage = async () => {
+    const clearAction = async () => {
+      await performClearMainImage();
+    };
+
+    showConfirmModal(
+      'Ana Görseli Temizle',
+      'Ana görseli temizlemek istediğinizden emin misiniz? Bu işlem sadece database\'deki ana görsel referansını temizler.',
+      clearAction,
+      { 
+        confirmText: 'Temizle', 
+        cancelText: 'İptal', 
+        isDangerous: true,
+        showNegativeImage: true
+      }
+    );
+  };
+
+  const performClearMainImage = async () => {
+    try {
+      // Database'deki image_url'i temizle
+      const { error } = await supabase
+        .from('products')
+        .update({ image_url: '' })
+        .eq('id', productId);
+      
+      if (error) throw error;
+      
+      // Form state'ini güncelle
+      setFormData(prev => ({ ...prev, image_url: '' }));
+      
+      showModal('success', 'Başarılı!', 'Ana görsel başarıyla temizlendi!', true);
+    } catch (error) {
+      console.error('Ana görsel temizlenirken hata:', error);
+      showModal('error', 'Hata!', 'Ana görsel temizlenirken hata oluştu!');
+    }
+  };
+
+  const setAsMainImage = async (imageUrl: string) => {
+    try {
+      setFormData(prev => ({ ...prev, image_url: imageUrl }));
+      showModal('success', 'Başarılı!', 'Ana görsel olarak ayarlandı!', true);
+    } catch (error) {
+      console.error('Ana görsel ayarlanırken hata:', error);
+      showModal('error', 'Hata!', 'Ana görsel ayarlanırken hata oluştu!');
     }
   };
 
@@ -90,13 +262,15 @@ export default function EditProduct() {
 
       if (error) throw error;
 
-      alert('Ürün başarıyla güncellendi!');
-      setSelectedFiles([]);
-      setPreviewUrls([]);
-      router.push('/admin/products');
+      showModal('success', 'Başarılı!', 'Ürün başarıyla güncellendi! Ürün listesine yönlendiriliyorsunuz...', true);
+      
+      // 2 saniye sonra yönlendir
+      setTimeout(() => {
+        router.push('/admin/products');
+      }, 2000);
     } catch (error) {
       console.error('Ürün güncellenirken hata:', error);
-      alert('Ürün güncellenirken hata oluştu!');
+      showModal('error', 'Hata!', 'Ürün güncellenirken bir hata oluştu. Lütfen tekrar deneyin.');
     } finally {
       setLoading(false);
     }
@@ -107,7 +281,7 @@ export default function EditProduct() {
     const imageFiles = fileArray.filter(file => file.type.startsWith('image/'));
     
     if (imageFiles.length === 0) {
-      alert('Lütfen sadece resim dosyalarını seçin!');
+      showModal('warning', 'Uyarı!', 'Lütfen sadece resim dosyalarını seçin!');
       return;
     }
 
@@ -115,31 +289,33 @@ export default function EditProduct() {
     const maxSize = 5 * 1024 * 1024;
     const oversizedFiles = imageFiles.filter(file => file.size > maxSize);
     if (oversizedFiles.length > 0) {
-      alert(`Şu dosyalar 5MB'dan büyük: ${oversizedFiles.map(f => f.name).join(', ')}`);
+      showModal('warning', 'Dosya Boyutu Uyarısı!', `Şu dosyalar 5MB'dan büyük: ${oversizedFiles.map(f => f.name).join(', ')}`);
       return;
     }
 
     setImageUploading(true);
-    setSelectedFiles(prev => [...prev, ...imageFiles]);
     
-    // Preview URL'leri oluştur
-    imageFiles.forEach(file => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setPreviewUrls(prev => [...prev, e.target?.result as string]);
-      };
-      reader.readAsDataURL(file);
-    });
+    // Görseller direkt storage'a yüklenecek, preview gerek yok
 
     try {
-      // İlk dosyayı gerçek storage'a yükle ve ana görsel olarak ayarla
-      if (imageFiles.length > 0) {
-        const firstFile = imageFiles[0];
-        const uploadedUrl = await uploadProductImage(firstFile, parseInt(productId));
-        
-        if (uploadedUrl) {
-          setFormData(prev => ({ ...prev, image_url: uploadedUrl }));
+      // Tüm dosyaları gerçek storage'a yükle
+      const uploadPromises = imageFiles.map(file => 
+        uploadProductImage(file, parseInt(productId))
+      );
+      
+      const uploadedUrls = await Promise.all(uploadPromises);
+      const successfulUploads = uploadedUrls.filter(url => url !== null);
+      
+      if (successfulUploads.length > 0) {
+        // İlk görseli ana görsel olarak ayarla (eğer henüz ana görsel yoksa)
+        if (!formData.image_url) {
+          setFormData(prev => ({ ...prev, image_url: successfulUploads[0] }));
         }
+        
+        // Mevcut görselleri güncelle
+        setExistingImages(prev => [...prev, ...successfulUploads]);
+        
+        showModal('success', 'Başarılı!', `${successfulUploads.length} görsel başarıyla yüklendi ve depolandı!`, true);
       }
     } catch (error: any) {
       console.error('Görsel yükleme hatası:', error);
@@ -147,8 +323,7 @@ export default function EditProduct() {
       
       if (errorMessage.includes('bucket') || errorMessage.includes('not found')) {
         // Storage bucket hatası için özel mesaj
-        const bucketNotFoundAlert = `
-🚨 Storage Bucket Bulunamadı!
+        const bucketNotFoundMessage = `Storage Bucket bulunamadı!
 
 ÇÖZÜM:
 1. Supabase Dashboard'a gidin: https://supabase.com/dashboard
@@ -158,13 +333,12 @@ export default function EditProduct() {
 5. "Public bucket" seçeneğini işaretleyin ✅
 6. "Create bucket" butonuna tıklayın
 
-Detaylı rehber için STORAGE_SETUP.md dosyasını inceleyin.
-        `;
-        alert(bucketNotFoundAlert);
+Detaylı rehber için STORAGE_SETUP.md dosyasını inceleyin.`;
+        showModal('error', 'Storage Bucket Bulunamadı!', bucketNotFoundMessage);
       } else if (errorMessage.includes('permission') || errorMessage.includes('authorized')) {
-        alert('Yetki hatası! Storage bucket\'ının public olduğundan emin olun ve RLS policy\'lerini kontrol edin.');
+        showModal('error', 'Yetki Hatası!', 'Storage bucket\'ının public olduğundan emin olun ve RLS policy\'lerini kontrol edin.');
       } else {
-        alert(`Görsel yükleme hatası: ${errorMessage}`);
+        showModal('error', 'Yükleme Hatası!', `Görsel yükleme hatası: ${errorMessage}`);
       }
     } finally {
       setImageUploading(false);
@@ -198,19 +372,8 @@ Detaylı rehber için STORAGE_SETUP.md dosyasını inceleyin.
     }
   };
 
-  const removeFile = (index: number) => {
-    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
-    setPreviewUrls(prev => prev.filter((_, i) => i !== index));
-    
-    // Eğer ilk dosyayı siliyorsak ve başka dosya varsa, yeni ilk dosyayı ana görsel yap
-    if (index === 0 && selectedFiles.length > 1) {
-      const fakeUrl = `/uploads/${selectedFiles[1].name}`;
-      setFormData({ ...formData, image_url: fakeUrl });
-    } else if (selectedFiles.length === 1) {
-      // Eğer bu son dosyaysa, mevcut image_url'i koru
-      // setFormData({ ...formData, image_url: '' });
-    }
-  };
+  // removeFile fonksiyonu artık gereksiz çünkü preview sistemi yok
+  // Görseller direkt storage'a yükleniyor ve mevcut görseller bölümünde yönetiliyor
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
@@ -221,6 +384,317 @@ Detaylı rehber için STORAGE_SETUP.md dosyasını inceleyin.
              : type === 'number' ? (value === '' ? null : Number(value))
              : value
     });
+  };
+
+  const assignImageToProduct = async (filename: string, imageUrl: string) => {
+    setAssigningImages(prev => [...prev, filename]);
+    
+    try {
+      // Create new filename with proper product ID
+      const fileExtension = filename.split('.').pop();
+      const timestamp = Date.now();
+      const newFilename = `product-${productId}-${timestamp}.${fileExtension}`;
+      
+      // First, download the image
+      const response = await fetch(imageUrl);
+      const blob = await response.blob();
+      
+      // Upload with new filename
+      const { data, error } = await supabase.storage
+        .from('products')
+        .upload(newFilename, blob, {
+          cacheControl: '3600',
+          upsert: false
+        });
+      
+      if (error) throw error;
+      
+      // Delete the old file
+      await supabase.storage
+        .from('products')
+        .remove([filename]);
+      
+      // Get new public URL
+      const { data: publicData } = supabase.storage
+        .from('products')
+        .getPublicUrl(newFilename);
+      
+      // Update existing images
+      setExistingImages(prev => [...prev, publicData.publicUrl]);
+      
+      // Remove from orphaned images
+      setOrphanedImages(prev => prev.filter(img => img.filename !== filename));
+      
+      // If no main image set, set this as main image
+      if (!formData.image_url) {
+        setFormData(prev => ({ ...prev, image_url: publicData.publicUrl }));
+      }
+      
+      showModal('success', 'Başarılı!', 'Görsel başarıyla bu ürüne atandı!', true);
+    } catch (error) {
+      console.error('Görsel atanırken hata:', error);
+      showModal('error', 'Hata!', 'Görsel atanırken hata oluştu!');
+    } finally {
+      setAssigningImages(prev => prev.filter(f => f !== filename));
+    }
+  };
+
+  // Modal functions
+  const showModal = (type: 'success' | 'error' | 'warning' | 'info', title: string, message: string, showPositiveImage = false) => {
+    setModal({
+      isOpen: true,
+      type,
+      title,
+      message,
+      showPositiveImage: type === 'success' ? showPositiveImage : false
+    });
+  };
+
+  const closeModal = () => {
+    setModal(prev => ({ ...prev, isOpen: false }));
+  };
+
+  // Confirmation modal functions
+  const showConfirmModal = (
+    title: string, 
+    message: string, 
+    onConfirm: () => void, 
+    options: {
+      confirmText?: string;
+      cancelText?: string;
+      isDangerous?: boolean;
+      showNegativeImage?: boolean;
+    } = {}
+  ) => {
+    setConfirmModal({
+      isOpen: true,
+      title,
+      message,
+      onConfirm,
+      onCancel: () => setConfirmModal(prev => ({ ...prev, isOpen: false })),
+      confirmText: options.confirmText || 'Evet',
+      cancelText: options.cancelText || 'Hayır',
+      isDangerous: options.isDangerous || false,
+      showNegativeImage: options.showNegativeImage || false
+    });
+  };
+
+  const closeConfirmModal = () => {
+    setConfirmModal(prev => ({ ...prev, isOpen: false }));
+  };
+
+  // ESC key handler
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (confirmModal.isOpen) {
+          closeConfirmModal();
+        } else if (modal.isOpen) {
+          closeModal();
+        }
+      }
+    };
+    
+    document.addEventListener('keydown', handleEsc);
+    return () => document.removeEventListener('keydown', handleEsc);
+  }, [modal.isOpen, confirmModal.isOpen]);
+
+  // Modal Component
+  const Modal = () => {
+    if (!modal.isOpen) return null;
+
+    const getModalIcon = () => {
+      switch (modal.type) {
+        case 'success':
+          return '✅';
+        case 'error':
+          return '❌';
+        case 'warning':
+          return '⚠️';
+        case 'info':
+          return 'ℹ️';
+        default:
+          return 'ℹ️';
+      }
+    };
+
+    const getModalColors = () => {
+      switch (modal.type) {
+        case 'success':
+          return {
+            bg: 'bg-green-50',
+            border: 'border-green-200',
+            title: 'text-green-800',
+            message: 'text-green-700',
+            button: 'bg-green-600 hover:bg-green-700'
+          };
+        case 'error':
+          return {
+            bg: 'bg-red-50',
+            border: 'border-red-200',
+            title: 'text-red-800',
+            message: 'text-red-700',
+            button: 'bg-red-600 hover:bg-red-700'
+          };
+        case 'warning':
+          return {
+            bg: 'bg-amber-50',
+            border: 'border-amber-200',
+            title: 'text-amber-800',
+            message: 'text-amber-700',
+            button: 'bg-amber-600 hover:bg-amber-700'
+          };
+        case 'info':
+          return {
+            bg: 'bg-blue-50',
+            border: 'border-blue-200',
+            title: 'text-blue-800',
+            message: 'text-blue-700',
+            button: 'bg-blue-600 hover:bg-blue-700'
+          };
+        default:
+          return {
+            bg: 'bg-gray-50',
+            border: 'border-gray-200',
+            title: 'text-gray-800',
+            message: 'text-gray-700',
+            button: 'bg-gray-600 hover:bg-gray-700'
+          };
+      }
+    };
+
+    const colors = getModalColors();
+
+    return (
+      <div className="fixed inset-0 z-50 overflow-y-auto">
+        {/* Backdrop */}
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 transition-opacity duration-300"
+          onClick={closeModal}
+        />
+        
+        {/* Modal */}
+        <div className="flex min-h-full items-center justify-center p-4">
+          <div className={`relative w-full max-w-md transform overflow-hidden rounded-2xl bg-white shadow-2xl transition-all duration-300 ${colors.bg} ${colors.border} border-2`}>
+            {/* Close button */}
+            <button
+              onClick={closeModal}
+              className="absolute right-4 top-4 text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+
+            <div className="p-6">
+              {/* Icon and Title */}
+              <div className="flex items-center mb-4">
+                <div className="text-4xl mr-3">
+                  {getModalIcon()}
+                </div>
+                <h3 className={`text-lg font-semibold ${colors.title}`}>
+                  {modal.title}
+                </h3>
+              </div>
+
+              {/* Positive Image for Success */}
+              {modal.showPositiveImage && modal.type === 'success' && (
+                <div className="mb-4 flex justify-center">
+                  <img 
+                    src="/miro_positive.webp" 
+                    alt="Success" 
+                    className="w-24 h-24 object-contain rounded-lg"
+                  />
+                </div>
+              )}
+
+              {/* Message */}
+              <p className={`text-sm mb-6 ${colors.message} leading-relaxed`}>
+                {modal.message}
+              </p>
+
+              {/* Button */}
+              <div className="flex justify-end">
+                <button
+                  onClick={closeModal}
+                  className={`px-6 py-2 rounded-lg text-white font-medium transition-colors ${colors.button}`}
+                >
+                  Tamam
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Confirmation Modal Component
+  const ConfirmModal = () => {
+    if (!confirmModal.isOpen) return null;
+
+    return (
+      <div className="fixed inset-0 z-60 overflow-y-auto">
+        {/* Backdrop */}
+        <div className="fixed inset-0 bg-black bg-opacity-50 transition-opacity duration-300" />
+        
+        {/* Modal */}
+        <div className="flex min-h-full items-center justify-center p-4">
+          <div className="relative w-full max-w-md transform overflow-hidden rounded-2xl bg-white shadow-2xl transition-all duration-300">
+            <div className="p-6">
+              {/* Icon and Title */}
+              <div className="flex items-center mb-4">
+                <div className="text-4xl mr-3">
+                  {confirmModal.isDangerous ? '⚠️' : '❓'}
+                </div>
+                <h3 className={`text-lg font-semibold ${confirmModal.isDangerous ? 'text-red-800' : 'text-gray-800'}`}>
+                  {confirmModal.title}
+                </h3>
+              </div>
+
+              {/* Negative Image for Dangerous Actions */}
+              {confirmModal.showNegativeImage && confirmModal.isDangerous && (
+                <div className="mb-4 flex justify-center">
+                  <img 
+                    src="/miro_negative.webp" 
+                    alt="Warning" 
+                    className="w-24 h-24 object-contain rounded-lg"
+                  />
+                </div>
+              )}
+
+              {/* Message */}
+              <p className="text-sm mb-6 text-gray-700 leading-relaxed">
+                {confirmModal.message}
+              </p>
+
+              {/* Buttons */}
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={confirmModal.onCancel}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  {confirmModal.cancelText}
+                </button>
+                <button
+                  onClick={() => {
+                    confirmModal.onConfirm();
+                    closeConfirmModal();
+                  }}
+                  className={`px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors ${
+                    confirmModal.isDangerous 
+                      ? 'bg-red-600 hover:bg-red-700' 
+                      : 'bg-blue-600 hover:bg-blue-700'
+                  }`}
+                >
+                  {confirmModal.confirmText}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   if (fetching) {
@@ -341,19 +815,165 @@ Detaylı rehber için STORAGE_SETUP.md dosyasını inceleyin.
               </div>
             </div>
 
-            {/* Current Image Preview */}
-            {formData.image_url && (
-              <div className="space-y-2">
-                <label className="block text-sm font-medium text-gray-700">Mevcut Görsel</label>
-                <div className="flex items-center space-x-4">
-                  <img 
-                    src={formData.image_url} 
-                    alt="Mevcut ürün görseli" 
-                    className="w-20 h-20 object-cover rounded-lg border"
-                  />
-                  <div className="text-sm text-gray-600">
-                    {formData.image_url}
+            {/* Existing Images Gallery */}
+            {existingImages.length > 0 && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Mevcut Ürün Görselleri ({existingImages.length})
+                </label>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                  {existingImages.map((url, index) => (
+                    <div key={index} className="relative group">
+                      <div 
+                        className="aspect-square bg-gray-100 rounded-lg overflow-hidden border cursor-pointer hover:opacity-80 transition-opacity"
+                        onClick={() => setAsMainImage(url)}
+                      >
+                        <img
+                          src={url}
+                          alt={`Mevcut görsel ${index + 1}`}
+                          className="w-full h-full object-contain"
+                        />
+                      </div>
+                      
+                      {/* Ana görsel işareti */}
+                      {formData.image_url === url && (
+                        <div className="absolute top-2 left-2 bg-green-500 text-white text-xs px-2 py-1 rounded">
+                          Ana Görsel
+                        </div>
+                      )}
+                      
+                      {/* Silme butonu */}
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteExistingImage(url)}
+                        disabled={deletingImages.includes(url)}
+                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600 disabled:opacity-50 shadow-md"
+                        title="Görseli sil"
+                      >
+                        {deletingImages.includes(url) ? '...' : '×'}
+                      </button>
+                      
+                      {/* Ana görsel yapma butonu */}
+                      {formData.image_url !== url && (
+                        <button
+                          type="button"
+                          onClick={() => setAsMainImage(url)}
+                          className="absolute bottom-2 left-2 bg-blue-500 text-white text-xs px-2 py-1 rounded hover:bg-blue-600"
+                          title="Ana görsel yap"
+                        >
+                          Ana Yap
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                
+                <div className="mt-2 text-sm text-gray-600">
+                  💡 Ana görsel yapmak için görsele tıklayın
+                </div>
+              </div>
+            )}
+
+            {/* Database Image URL as fallback */}
+            {existingImages.length === 0 && formData.image_url && (
+              <div className="bg-amber-50 border border-amber-200 p-4 rounded-lg">
+                <label className="block text-sm font-medium text-amber-800 mb-2">
+                  ⚠️ Database'den Kalan Ana Görsel
+                </label>
+                <div className="flex items-start space-x-4">
+                  <div className="relative">
+                    <div className="aspect-square w-32 bg-gray-100 rounded-lg overflow-hidden border">
+                      <img
+                        src={formData.image_url}
+                        alt="Database'den mevcut görsel"
+                        className="w-full h-full object-contain"
+                      />
+                    </div>
+                    <div className="absolute top-2 left-2 bg-green-500 text-white text-xs px-2 py-1 rounded">
+                      Ana Görsel
+                    </div>
                   </div>
+                  <div className="flex-1">
+                    <div className="text-sm text-amber-700 mb-3">
+                      <p className="font-medium mb-1">Bu görsel database'de kayıtlı ancak storage'da bulunamadı.</p>
+                      <p>Muhtemelen görsel dosyası silinmiş ama database referansı kalmış.</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={clearMainImage}
+                      className="bg-red-500 hover:bg-red-600 text-white text-sm px-3 py-2 rounded-md transition-colors"
+                    >
+                      Ana Görseli Temizle
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Orphaned Images - Images that can be assigned to this product */}
+            {orphanedImages.length > 0 && (
+              <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg">
+                <label className="block text-sm font-medium text-blue-800 mb-2">
+                  🔗 Storage'da Bu Ürüne Atanabilecek Görseller ({orphanedImages.length})
+                </label>
+                <p className="text-sm text-blue-700 mb-4">
+                  Bu görseller daha önce yüklenmiş ancak henüz hiçbir ürüne atanmamış. Bu ürüne atamak için "Ata" butonuna tıklayın.
+                </p>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                  {orphanedImages.map((image, index) => (
+                    <div key={index} className="relative group">
+                      <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden border">
+                        <img
+                          src={image.url}
+                          alt={`Sahipsiz görsel ${index + 1}`}
+                          className="w-full h-full object-contain"
+                        />
+                      </div>
+                      
+                      {/* Assign button */}
+                      <button
+                        type="button"
+                        onClick={() => assignImageToProduct(image.filename, image.url)}
+                        disabled={assigningImages.includes(image.filename)}
+                        className="absolute bottom-2 left-2 bg-blue-500 text-white text-xs px-2 py-1 rounded hover:bg-blue-600 disabled:opacity-50"
+                        title="Bu ürüne ata"
+                      >
+                        {assigningImages.includes(image.filename) ? 'Atanıyor...' : 'Ata'}
+                      </button>
+                      
+                      {/* Delete button */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const deleteOrphanedAction = async () => {
+                            const success = await deleteProductImage(image.url);
+                            if (success) {
+                              setOrphanedImages(prev => prev.filter(img => img.filename !== image.filename));
+                              showModal('success', 'Başarılı!', 'Görsel başarıyla silindi!', true);
+                            } else {
+                              showModal('error', 'Hata!', 'Görsel silinirken hata oluştu!');
+                            }
+                          };
+
+                          showConfirmModal(
+                            'Görseli Kalıcı Olarak Sil',
+                            'Bu görseli kalıcı olarak silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.',
+                            deleteOrphanedAction,
+                            { 
+                              confirmText: 'Sil', 
+                              cancelText: 'İptal', 
+                              isDangerous: true,
+                              showNegativeImage: true
+                            }
+                          );
+                        }}
+                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600 shadow-md"
+                        title="Görseli sil"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
@@ -407,45 +1027,8 @@ Detaylı rehber için STORAGE_SETUP.md dosyasını inceleyin.
                 </div>
               )}
 
-              {/* File Preview */}
-              {previewUrls.length > 0 && (
-                <div className="mt-4">
-                  <h4 className="text-sm font-medium text-gray-700 mb-2">Seçilen Yeni Görseller</h4>
-                  <div className="grid grid-cols-3 gap-3">
-                    {previewUrls.map((url, index) => (
-                      <div key={index} className="relative">
-                        <img
-                          src={url}
-                          alt={`Preview ${index + 1}`}
-                          className="w-full h-24 object-cover rounded-lg border"
-                        />
-                        {index === 0 && (
-                          <div className="absolute top-1 left-1 bg-blue-500 text-white text-xs px-2 py-1 rounded">
-                            Ana Görsel
-                          </div>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => removeFile(index)}
-                          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600"
-                        >
-                          ×
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Success Message for new upload */}
-              {selectedFiles.length > 0 && !imageUploading && (
-                <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
-                  <p className="text-green-700 text-sm">✓ Yeni görsel başarıyla yüklendi</p>
-                </div>
-              )}
+              {/* Upload completed message will be shown via alert */}
             </div>
-
-
 
             {/* Checkboxes */}
             <div className="space-y-4">
@@ -503,6 +1086,8 @@ Detaylı rehber için STORAGE_SETUP.md dosyasını inceleyin.
           </form>
         </div>
       </div>
+      <Modal />
+      <ConfirmModal />
     </div>
   );
 } 

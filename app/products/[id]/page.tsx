@@ -5,12 +5,13 @@ import { useParams, useRouter } from 'next/navigation'
 import { ChevronLeftIcon, ChevronRightIcon, StarIcon, HeartIcon, ShoppingCartIcon } from '@heroicons/react/24/outline'
 import { HeartIcon as HeartIconSolid } from '@heroicons/react/24/solid'
 import Image from 'next/image'
-import { fetchProductById, Product } from '@/lib/supabase'
+import { fetchProductById, fetchProductImages, Product } from '@/lib/supabase'
 
 export default function ProductDetailPage() {
   const params = useParams()
   const router = useRouter()
   const [product, setProduct] = useState<Product | null>(null)
+  const [productImages, setProductImages] = useState<string[]>([])
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
   const [isWishlisted, setIsWishlisted] = useState(false)
@@ -19,10 +20,52 @@ export default function ProductDetailPage() {
   useEffect(() => {
     const loadProduct = async () => {
       try {
+        console.log('🏷️ Loading product with ID:', params.id);
         const productData = await fetchProductById(params.id as string)
+        console.log('📦 Product data:', productData);
         setProduct(productData)
+        
+        if (productData) {
+          console.log('🖼️ Starting to fetch images for product:', params.id);
+          // Fetch images from storage
+          const images = await fetchProductImages(params.id as string)
+          console.log('📸 Images from storage:', images);
+          
+          // Combine storage images with database image_url (if exists)
+          const allImages: string[] = []
+          
+          if (productData.image_url) {
+            console.log('💾 Adding database image_url:', productData.image_url);
+            allImages.push(productData.image_url)
+          }
+          
+          // Add storage images that are different from main image_url
+          images.forEach(img => {
+            if (!allImages.includes(img)) {
+              console.log('➕ Adding storage image:', img);
+              allImages.push(img)
+            } else {
+              console.log('⏭️ Skipping duplicate image:', img);
+            }
+          })
+          
+          // If no images found, use fallback static images
+          if (allImages.length === 0) {
+            console.log('🎨 No images found, using fallback static images');
+            allImages.push(
+              `/Model1/Adriatic/m1a1.webp`,
+              `/Model1/Adriatic/m1a2.webp`,
+              `/Model1/Adriatic/m1a3.webp`,
+              `/Model1/Adriatic/m1a4.webp`,
+              `/Model1/Adriatic/m1a5.webp`
+            )
+          }
+          
+          console.log('🎯 Final combined images array:', allImages);
+          setProductImages(allImages)
+        }
       } catch (error) {
-        console.error('Error loading product:', error)
+        console.error('❌ Error loading product:', error)
       } finally {
         setIsLoading(false)
       }
@@ -57,23 +100,16 @@ export default function ProductDetailPage() {
     )
   }
 
-  // Use product's actual image or fallback to static images
-  const images = product.image_url ? 
-    [product.image_url] : 
-    [
-      `/Model1/Adriatic/m1a1.webp`,
-      `/Model1/Adriatic/m1a2.webp`,
-      `/Model1/Adriatic/m1a3.webp`,
-      `/Model1/Adriatic/m1a4.webp`,
-      `/Model1/Adriatic/m1a5.webp`
-    ]
-
   const nextImage = () => {
-    setCurrentImageIndex((prev) => (prev + 1) % images.length)
+    if (productImages.length > 0) {
+      setCurrentImageIndex((prev) => (prev + 1) % productImages.length)
+    }
   }
 
   const prevImage = () => {
-    setCurrentImageIndex((prev) => (prev - 1 + images.length) % images.length)
+    if (productImages.length > 0) {
+      setCurrentImageIndex((prev) => (prev - 1 + productImages.length) % productImages.length)
+    }
   }
 
   const goToImage = (index: number) => {
@@ -111,57 +147,74 @@ export default function ProductDetailPage() {
             {/* Main Image */}
             <div className="relative bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
               <div className="aspect-square relative">
-                <Image
-                  src={images[currentImageIndex]}
-                  alt={product.name}
-                  fill
-                  className="object-cover"
-                  priority
-                />
-                
-                {/* Navigation Arrows */}
-                <button
-                  onClick={prevImage}
-                  className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white rounded-full p-2 shadow-md transition-all"
-                >
-                  <ChevronLeftIcon className="h-6 w-6 text-gray-600" />
-                </button>
-                <button
-                  onClick={nextImage}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white rounded-full p-2 shadow-md transition-all"
-                >
-                  <ChevronRightIcon className="h-6 w-6 text-gray-600" />
-                </button>
+                {productImages.length > 0 ? (
+                  <>
+                    <Image
+                      src={productImages[currentImageIndex]}
+                      alt={product.name}
+                      fill
+                      className="object-cover"
+                      priority
+                    />
+                    
+                    {/* Navigation Arrows - only show if more than 1 image */}
+                    {productImages.length > 1 && (
+                      <>
+                        <button
+                          onClick={prevImage}
+                          className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white rounded-full p-2 shadow-md transition-all"
+                        >
+                          <ChevronLeftIcon className="h-6 w-6 text-gray-600" />
+                        </button>
+                        <button
+                          onClick={nextImage}
+                          className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white rounded-full p-2 shadow-md transition-all"
+                        >
+                          <ChevronRightIcon className="h-6 w-6 text-gray-600" />
+                        </button>
 
-                {/* Image Counter */}
-                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/50 text-white text-sm px-3 py-1 rounded-full">
-                  {currentImageIndex + 1} / {images.length}
-                </div>
+                        {/* Image Counter */}
+                        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/50 text-white text-sm px-3 py-1 rounded-full">
+                          {currentImageIndex + 1} / {productImages.length}
+                        </div>
+                      </>
+                    )}
+                  </>
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center bg-gray-200">
+                    <div className="text-gray-500 text-center">
+                      <div className="text-4xl mb-2">📷</div>
+                      <div>Görsel yükleniyor...</div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Thumbnail Images */}
-            <div className="flex space-x-2 overflow-x-auto">
-              {images.map((image, index) => (
-                <button
-                  key={index}
-                  onClick={() => goToImage(index)}
-                  className={`flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 transition-all ${
-                    currentImageIndex === index
-                      ? 'border-amber-600'
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
-                >
-                  <Image
-                    src={image}
-                    alt={`${product.name} ${index + 1}`}
-                    width={80}
-                    height={80}
-                    className="object-cover w-full h-full"
-                  />
-                </button>
-              ))}
-            </div>
+            {/* Thumbnail Images - only show if more than 1 image */}
+            {productImages.length > 1 && (
+              <div className="flex space-x-2 overflow-x-auto">
+                {productImages.map((image, index) => (
+                  <button
+                    key={index}
+                    onClick={() => goToImage(index)}
+                    className={`flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 transition-all ${
+                      currentImageIndex === index
+                        ? 'border-amber-600'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <Image
+                      src={image}
+                      alt={`${product.name} ${index + 1}`}
+                      width={80}
+                      height={80}
+                      className="object-cover w-full h-full"
+                    />
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Right Side - Product Details */}

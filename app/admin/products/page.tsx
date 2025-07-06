@@ -15,6 +15,302 @@ export default function AdminProducts() {
   const [categories, setCategories] = useState<string[]>([]);
   const router = useRouter();
 
+  // Modal state
+  const [modal, setModal] = useState<{
+    isOpen: boolean;
+    type: 'success' | 'error' | 'warning' | 'info';
+    title: string;
+    message: string;
+    showPositiveImage?: boolean;
+  }>({
+    isOpen: false,
+    type: 'info',
+    title: '',
+    message: '',
+    showPositiveImage: false
+  });
+
+  // Confirmation modal state
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    onCancel: () => void;
+    confirmText?: string;
+    cancelText?: string;
+    isDangerous?: boolean;
+    showNegativeImage?: boolean;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+    onCancel: () => {},
+    confirmText: 'Evet',
+    cancelText: 'Hayır',
+    isDangerous: false,
+    showNegativeImage: false
+  });
+
+  // Modal functions
+  const showModal = (type: 'success' | 'error' | 'warning' | 'info', title: string, message: string, showPositiveImage = false) => {
+    setModal({
+      isOpen: true,
+      type,
+      title,
+      message,
+      showPositiveImage: type === 'success' ? showPositiveImage : false
+    });
+  };
+
+  const closeModal = () => {
+    setModal(prev => ({ ...prev, isOpen: false }));
+  };
+
+  // Confirmation modal functions
+  const showConfirmModal = (
+    title: string, 
+    message: string, 
+    onConfirm: () => void, 
+    options: {
+      confirmText?: string;
+      cancelText?: string;
+      isDangerous?: boolean;
+      showNegativeImage?: boolean;
+    } = {}
+  ) => {
+    setConfirmModal({
+      isOpen: true,
+      title,
+      message,
+      onConfirm,
+      onCancel: () => setConfirmModal(prev => ({ ...prev, isOpen: false })),
+      confirmText: options.confirmText || 'Evet',
+      cancelText: options.cancelText || 'Hayır',
+      isDangerous: options.isDangerous || false,
+      showNegativeImage: options.showNegativeImage || false
+    });
+  };
+
+  const closeConfirmModal = () => {
+    setConfirmModal(prev => ({ ...prev, isOpen: false }));
+  };
+
+  // ESC key handler
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (confirmModal.isOpen) {
+          closeConfirmModal();
+        } else if (modal.isOpen) {
+          closeModal();
+        }
+      }
+    };
+    
+    document.addEventListener('keydown', handleEsc);
+    return () => document.removeEventListener('keydown', handleEsc);
+  }, [modal.isOpen, confirmModal.isOpen]);
+
+  // Modal Component
+  const Modal = () => {
+    if (!modal.isOpen) return null;
+
+    const getModalIcon = () => {
+      switch (modal.type) {
+        case 'success':
+          return '✅';
+        case 'error':
+          return '❌';
+        case 'warning':
+          return '⚠️';
+        case 'info':
+          return 'ℹ️';
+        default:
+          return 'ℹ️';
+      }
+    };
+
+    const getModalColors = () => {
+      switch (modal.type) {
+        case 'success':
+          return {
+            bg: 'bg-green-50',
+            border: 'border-green-200',
+            title: 'text-green-800',
+            message: 'text-green-700',
+            button: 'bg-green-600 hover:bg-green-700'
+          };
+        case 'error':
+          return {
+            bg: 'bg-red-50',
+            border: 'border-red-200',
+            title: 'text-red-800',
+            message: 'text-red-700',
+            button: 'bg-red-600 hover:bg-red-700'
+          };
+        case 'warning':
+          return {
+            bg: 'bg-amber-50',
+            border: 'border-amber-200',
+            title: 'text-amber-800',
+            message: 'text-amber-700',
+            button: 'bg-amber-600 hover:bg-amber-700'
+          };
+        case 'info':
+          return {
+            bg: 'bg-blue-50',
+            border: 'border-blue-200',
+            title: 'text-blue-800',
+            message: 'text-blue-700',
+            button: 'bg-blue-600 hover:bg-blue-700'
+          };
+        default:
+          return {
+            bg: 'bg-gray-50',
+            border: 'border-gray-200',
+            title: 'text-gray-800',
+            message: 'text-gray-700',
+            button: 'bg-gray-600 hover:bg-gray-700'
+          };
+      }
+    };
+
+    const colors = getModalColors();
+
+    return (
+      <div className="fixed inset-0 z-50 overflow-y-auto">
+        {/* Backdrop */}
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 transition-opacity duration-300"
+          onClick={closeModal}
+        />
+        
+        {/* Modal */}
+        <div className="flex min-h-full items-center justify-center p-4">
+          <div className={`relative w-full max-w-md transform overflow-hidden rounded-2xl bg-white shadow-2xl transition-all duration-300 ${colors.bg} ${colors.border} border-2`}>
+            {/* Close button */}
+            <button
+              onClick={closeModal}
+              className="absolute right-4 top-4 text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+
+            <div className="p-6">
+              {/* Icon and Title */}
+              <div className="flex items-center mb-4">
+                <div className="text-4xl mr-3">
+                  {getModalIcon()}
+                </div>
+                <h3 className={`text-lg font-semibold ${colors.title}`}>
+                  {modal.title}
+                </h3>
+              </div>
+
+              {/* Positive Image for Success */}
+              {modal.showPositiveImage && modal.type === 'success' && (
+                <div className="mb-4 flex justify-center">
+                  <img 
+                    src="/miro_positive.webp" 
+                    alt="Success" 
+                    className="w-24 h-24 object-contain rounded-lg"
+                  />
+                </div>
+              )}
+
+              {/* Message */}
+              <p className={`text-sm mb-6 ${colors.message} leading-relaxed`}>
+                {modal.message}
+              </p>
+
+              {/* Button */}
+              <div className="flex justify-end">
+                <button
+                  onClick={closeModal}
+                  className={`px-6 py-2 rounded-lg text-white font-medium transition-colors ${colors.button}`}
+                >
+                  Tamam
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Confirmation Modal Component
+  const ConfirmModal = () => {
+    if (!confirmModal.isOpen) return null;
+
+    return (
+      <div className="fixed inset-0 z-60 overflow-y-auto">
+        {/* Backdrop */}
+        <div className="fixed inset-0 bg-black bg-opacity-50 transition-opacity duration-300" />
+        
+        {/* Modal */}
+        <div className="flex min-h-full items-center justify-center p-4">
+          <div className="relative w-full max-w-md transform overflow-hidden rounded-2xl bg-white shadow-2xl transition-all duration-300">
+            <div className="p-6">
+              {/* Icon and Title */}
+              <div className="flex items-center mb-4">
+                <div className="text-4xl mr-3">
+                  {confirmModal.isDangerous ? '⚠️' : '❓'}
+                </div>
+                <h3 className={`text-lg font-semibold ${confirmModal.isDangerous ? 'text-red-800' : 'text-gray-800'}`}>
+                  {confirmModal.title}
+                </h3>
+              </div>
+
+              {/* Negative Image for Dangerous Actions */}
+              {confirmModal.showNegativeImage && confirmModal.isDangerous && (
+                <div className="mb-4 flex justify-center">
+                  <img 
+                    src="/miro_negative.webp" 
+                    alt="Warning" 
+                    className="w-24 h-24 object-contain rounded-lg"
+                  />
+                </div>
+              )}
+
+              {/* Message */}
+              <p className="text-sm mb-6 text-gray-700 leading-relaxed">
+                {confirmModal.message}
+              </p>
+
+              {/* Buttons */}
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={confirmModal.onCancel}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  {confirmModal.cancelText}
+                </button>
+                <button
+                  onClick={() => {
+                    confirmModal.onConfirm();
+                    closeConfirmModal();
+                  }}
+                  className={`px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors ${
+                    confirmModal.isDangerous 
+                      ? 'bg-red-600 hover:bg-red-700' 
+                      : 'bg-blue-600 hover:bg-blue-700'
+                  }`}
+                >
+                  {confirmModal.confirmText}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   useEffect(() => {
     // Debug information
     console.log('Admin Products Page Loading...');
@@ -95,8 +391,24 @@ export default function AdminProducts() {
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm('Bu ürünü silmek istediğinizden emin misiniz?')) return;
+    const deleteAction = async () => {
+      await performDeleteProduct(id);
+    };
 
+    showConfirmModal(
+      'Ürünü Sil',
+      'Bu ürünü silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.',
+      deleteAction,
+      { 
+        confirmText: 'Sil', 
+        cancelText: 'İptal', 
+        isDangerous: true,
+        showNegativeImage: true
+      }
+    );
+  };
+
+  const performDeleteProduct = async (id: number) => {
     try {
       const { error } = await supabase
         .from('products')
@@ -114,7 +426,7 @@ export default function AdminProducts() {
       }
       
       setProducts(products.filter(p => p.id !== id));
-      alert('Ürün başarıyla silindi!');
+      showModal('success', 'Başarılı!', 'Ürün başarıyla silindi!', true);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Bilinmeyen hata';
       console.error('Ürün silinirken hata:', {
@@ -122,7 +434,7 @@ export default function AdminProducts() {
         error: error,
         stack: error instanceof Error ? error.stack : undefined
       });
-      alert(`Ürün silinirken hata oluştu: ${errorMessage}`);
+      showModal('error', 'Hata!', `Ürün silinirken hata oluştu: ${errorMessage}`);
     }
   };
 
@@ -153,7 +465,7 @@ export default function AdminProducts() {
         error: error,
         stack: error instanceof Error ? error.stack : undefined
       });
-      alert(`Stok durumu güncellenirken hata oluştu: ${errorMessage}`);
+      showModal('error', 'Hata!', `Stok durumu güncellenirken hata oluştu: ${errorMessage}`);
     }
   };
 
@@ -375,6 +687,10 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key`}
           )}
         </div>
       </div>
+      
+      {/* Modal Components */}
+      <Modal />
+      <ConfirmModal />
     </div>
   );
 } 

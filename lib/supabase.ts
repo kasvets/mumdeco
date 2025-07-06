@@ -267,19 +267,20 @@ export const checkStorageBucket = async (): Promise<boolean> => {
 
 export const uploadProductImage = async (file: File, productId?: number): Promise<string | null> => {
   try {
-    // Unique filename oluştur
+    // Benzersiz filename oluştur - timestamp + random string
     const timestamp = Date.now();
+    const randomSuffix = Math.random().toString(36).substring(2, 8);
     const fileExtension = file.name.split('.').pop();
-    const fileName = `product-${productId || timestamp}-${timestamp}.${fileExtension}`;
+    const fileName = `product-${productId || timestamp}-${timestamp}-${randomSuffix}.${fileExtension}`;
     
     console.log('Uploading file:', fileName, 'Size:', file.size, 'bytes');
     
-    // Upload to storage
+    // Upload to storage with upsert true to handle conflicts
     const { data, error } = await supabase.storage
       .from('products')
       .upload(fileName, file, {
         cacheControl: '3600',
-        upsert: false
+        upsert: true
       });
 
     if (error) {
@@ -335,5 +336,127 @@ export const deleteProductImage = async (imageUrl: string): Promise<boolean> => 
   } catch (error) {
     console.error('Delete error:', error);
     return false;
+  }
+};
+
+// Fetch all images for a specific product from storage
+export const fetchProductImages = async (productId: string): Promise<string[]> => {
+  try {
+    console.log('🔍 Fetching images for product ID:', productId);
+    
+    const { data, error } = await supabase.storage
+      .from('products')
+      .list('', {
+        limit: 100,
+        offset: 0,
+      });
+
+    if (error) {
+      console.error('❌ Error fetching product images:', error);
+      return [];
+    }
+
+    if (!data) {
+      console.log('⚠️ No data returned from storage');
+      return [];
+    }
+
+    console.log('📁 All files in storage:', data.map(f => f.name));
+
+    // Filter files that start with "product-{productId}-"
+    // New pattern: product-{productId}-{timestamp}-{randomSuffix}.{extension}
+    const filteredFiles = data.filter(file => {
+      const matches = file.name.startsWith(`product-${productId}-`) && file.name.includes('-');
+      if (matches) {
+        console.log('✅ Found matching file:', file.name);
+      }
+      return matches;
+    });
+
+    console.log('🎯 Filtered files for product', productId, ':', filteredFiles.map(f => f.name));
+
+    if (filteredFiles.length === 0) {
+      console.log('⚠️ No images found for product', productId);
+      return [];
+    }
+
+    const productImages = filteredFiles
+      .map(file => {
+        const { data: publicData } = supabase.storage
+          .from('products')
+          .getPublicUrl(file.name);
+        console.log('🔗 Generated URL for', file.name, ':', publicData.publicUrl);
+        return publicData.publicUrl;
+      })
+      .filter(url => url); // Remove any null/undefined URLs
+
+    console.log('✅ Final product images:', productImages);
+    return productImages;
+  } catch (error) {
+    console.error('❌ Error fetching product images:', error);
+    return [];
+  }
+};
+
+// Fetch orphaned images (images that don't follow the product-{id}- pattern)
+export const fetchOrphanedImages = async (): Promise<{url: string, filename: string}[]> => {
+  try {
+    const { data, error } = await supabase.storage
+      .from('products')
+      .list('', {
+        limit: 100,
+        offset: 0,
+      });
+
+    if (error) {
+      console.error('Error fetching orphaned images:', error);
+      return [];
+    }
+
+    if (!data) {
+      return [];
+    }
+
+    // Find files that start with "product-" but don't match the product-{id}-{timestamp}-{randomSuffix} pattern
+    const orphanedFiles = data.filter(file => {
+      const name = file.name;
+      if (!name.startsWith('product-')) return false;
+      
+      // Check if it matches product-{id}-{timestamp}-{randomSuffix} pattern where {id} is a number
+      const match = name.match(/^product-(\d+)-(\d+)-([a-z0-9]+)\./);
+      if (match) {
+        const [, id, timestamp] = match;
+        // If the ID and timestamp are the same, it's likely an orphaned file (old pattern)
+        return id === timestamp;
+      }
+      
+      // Also check for old pattern: product-{timestamp}-{timestamp}
+      const oldMatch = name.match(/^product-(\d+)-(\d+)\./);
+      if (oldMatch) {
+        const [, id, timestamp] = oldMatch;
+        return id === timestamp;
+      }
+      
+      return false;
+    });
+
+    console.log('🔍 Orphaned files found:', orphanedFiles.map(f => f.name));
+
+    const orphanedImages = orphanedFiles
+      .map(file => {
+        const { data: publicData } = supabase.storage
+          .from('products')
+          .getPublicUrl(file.name);
+        return {
+          url: publicData.publicUrl,
+          filename: file.name
+        };
+      })
+      .filter(item => item.url);
+
+    return orphanedImages;
+  } catch (error) {
+    console.error('Error fetching orphaned images:', error);
+    return [];
   }
 }; 
