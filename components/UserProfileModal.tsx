@@ -45,16 +45,57 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose }) 
     confirmPassword: '',
     acceptTerms: false,
   });
+
+  // Helper function to get valid authentication token
+  const getValidAuthToken = async () => {
+    try {
+      // First try to get token from current Supabase session
+      const { data: { session }, error } = await supabaseClient.auth.getSession();
+      
+      if (error) {
+        console.error('Session error:', error);
+        throw new Error('Oturum hatası. Lütfen tekrar giriş yapın.');
+      }
+
+      if (session?.access_token) {
+        // Verify token is still valid
+        const now = Math.floor(Date.now() / 1000);
+        const tokenExp = session.expires_at || 0;
+        
+        if (tokenExp > now) {
+          // Token is valid
+          return session.access_token;
+        } else {
+          // Token expired, try to refresh
+          const { data: refreshedSession, error: refreshError } = await supabaseClient.auth.refreshSession();
+          
+          if (refreshError || !refreshedSession.session?.access_token) {
+            throw new Error('Oturum süresi dolmuş. Lütfen tekrar giriş yapın.');
+          }
+          
+          return refreshedSession.session.access_token;
+        }
+      }
+
+      // Fallback to localStorage token (for email/password login)
+      const storedToken = localStorage.getItem('auth_token');
+      if (storedToken) {
+        return storedToken;
+      }
+
+      throw new Error('Oturum bulunamadı. Lütfen tekrar giriş yapın.');
+    } catch (error: any) {
+      console.error('Token retrieval error:', error);
+      throw error;
+    }
+  };
   
   // Kullanıcı adres bilgilerini çek
   const fetchUserAddress = async () => {
     if (!user) return;
     
     try {
-      const { data: { session } } = await supabaseClient.auth.getSession();
-      const token = session?.access_token || localStorage.getItem('auth_token');
-      
-      if (!token) return;
+      const token = await getValidAuthToken();
 
       const response = await fetch('/api/user/profile', {
         method: 'GET',
@@ -63,14 +104,23 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose }) 
         },
       });
 
+      if (response.status === 401) {
+        // Token expired or invalid, clear stored token
+        localStorage.removeItem('auth_token');
+        throw new Error('Oturum süresi dolmuş. Lütfen tekrar giriş yapın.');
+      }
+
       if (response.ok) {
         const data = await response.json();
         if (data.addresses && data.addresses.length > 0) {
           setUserAddress(data.addresses[0]); // İlk adresi al
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Address fetch error:', error);
+      if (error.message.includes('Oturum')) {
+        setError(error.message);
+      }
     }
   };
 
@@ -219,7 +269,13 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose }) 
     
     try {
       await signOut();
-      setSuccess('Çıkış yapıldı.');
+      localStorage.removeItem('auth_token'); // Clear stored token
+      setSuccess('Başarıyla çıkış yapıldı.');
+      
+      // Close modal after logout
+      setTimeout(() => {
+        onClose();
+      }, 1500);
     } catch (error: any) {
       setError('Çıkış yapılırken hata oluştu.');
     } finally {
@@ -246,13 +302,7 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose }) 
     setError(null);
     
     try {
-      // Supabase session'ından token'ı al
-      const { data: { session } } = await supabaseClient.auth.getSession();
-      const token = session?.access_token || localStorage.getItem('auth_token');
-      
-      if (!token) {
-        throw new Error('Oturum süresi dolmuş. Lütfen tekrar giriş yapın.');
-      }
+      const token = await getValidAuthToken();
 
       const response = await fetch('/api/user/profile', {
         method: 'PUT',
@@ -264,6 +314,11 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose }) 
           fullName: editedName.trim(),
         }),
       });
+
+      if (response.status === 401) {
+        localStorage.removeItem('auth_token');
+        throw new Error('Oturum süresi dolmuş. Lütfen tekrar giriş yapın.');
+      }
 
       const data = await response.json();
 
@@ -311,12 +366,7 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose }) 
     setError(null);
     
     try {
-      const { data: { session } } = await supabaseClient.auth.getSession();
-      const token = session?.access_token || localStorage.getItem('auth_token');
-      
-      if (!token) {
-        throw new Error('Oturum süresi dolmuş. Lütfen tekrar giriş yapın.');
-      }
+      const token = await getValidAuthToken();
 
       const response = await fetch('/api/user/profile', {
         method: 'PUT',
@@ -328,6 +378,11 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose }) 
           email: editedEmail.trim(),
         }),
       });
+
+      if (response.status === 401) {
+        localStorage.removeItem('auth_token');
+        throw new Error('Oturum süresi dolmuş. Lütfen tekrar giriş yapın.');
+      }
 
       const data = await response.json();
 
@@ -374,12 +429,7 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose }) 
     setError(null);
     
     try {
-      const { data: { session } } = await supabaseClient.auth.getSession();
-      const token = session?.access_token || localStorage.getItem('auth_token');
-      
-      if (!token) {
-        throw new Error('Oturum süresi dolmuş. Lütfen tekrar giriş yapın.');
-      }
+      const token = await getValidAuthToken();
 
       const response = await fetch('/api/user/profile', {
         method: 'PUT',
@@ -391,6 +441,11 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose }) 
           phone: editedPhone.trim(),
         }),
       });
+
+      if (response.status === 401) {
+        localStorage.removeItem('auth_token');
+        throw new Error('Oturum süresi dolmuş. Lütfen tekrar giriş yapın.');
+      }
 
       const data = await response.json();
 
@@ -451,12 +506,7 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose }) 
     setError(null);
     
     try {
-      const { data: { session } } = await supabaseClient.auth.getSession();
-      const token = session?.access_token || localStorage.getItem('auth_token');
-      
-      if (!token) {
-        throw new Error('Oturum süresi dolmuş. Lütfen tekrar giriş yapın.');
-      }
+      const token = await getValidAuthToken();
 
       const response = await fetch('/api/user/address', {
         method: 'PUT',
@@ -470,6 +520,11 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose }) 
           district: editedAddress.district.trim(),
         }),
       });
+
+      if (response.status === 401) {
+        localStorage.removeItem('auth_token');
+        throw new Error('Oturum süresi dolmuş. Lütfen tekrar giriş yapın.');
+      }
 
       const data = await response.json();
 
