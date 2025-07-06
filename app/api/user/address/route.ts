@@ -1,11 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-// Supabase client (server-side için)
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_KEY!
-);
+import { getServerSupabaseClient } from '@/lib/supabase-server';
 
 // Token'dan kullanıcı ID'sini al
 async function getUserFromToken(request: NextRequest) {
@@ -18,6 +12,7 @@ async function getUserFromToken(request: NextRequest) {
   const token = authHeader.substring(7);
   
   try {
+    const supabase = getServerSupabaseClient();
     const { data: { user }, error } = await supabase.auth.getUser(token);
     if (error || !user) {
       return null;
