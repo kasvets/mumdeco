@@ -1,35 +1,22 @@
 import { createClient } from '@supabase/supabase-js'
-import { supabaseConfig, canUseSupabase, handleEnvError, isDevelopment } from './env'
+import { supabaseConfig, canUseSupabase } from './env'
 
-// Create Supabase client - handle missing config gracefully
+// Create Supabase client with strict validation
 export const supabase = (() => {
   try {
+    // Validate configuration
     if (!canUseSupabase()) {
-      console.error('Supabase not properly configured. Please check your environment variables.');
-      
-      if (isDevelopment) {
-        console.warn(`
-🔧 Development Mode: Supabase Configuration Missing
-Please update your .env.local file with proper values:
-- NEXT_PUBLIC_SUPABASE_URL=https://your-project-id.supabase.co
-- NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
-
-Current values:
-- URL: ${supabaseConfig.url || 'MISSING'}
-- Key: ${supabaseConfig.anonKey ? 'SET' : 'MISSING'}
-        `);
-      }
-      
-      // Return a minimal client that will fail gracefully
-      return createClient('https://placeholder.supabase.co', 'placeholder-key');
+      throw new Error('Invalid Supabase configuration. Please check your environment variables.');
     }
     
+    // Create client with validated config
+    const client = createClient(supabaseConfig.url, supabaseConfig.anonKey);
     console.log('✅ Supabase client initialized successfully');
-    return createClient(supabaseConfig.url, supabaseConfig.anonKey);
+    return client;
+    
   } catch (error) {
-    handleEnvError(error, 'Supabase initialization');
-    // Return a minimal client that will fail gracefully
-    return createClient('https://placeholder.supabase.co', 'placeholder-key');
+    console.error('❌ Supabase initialization failed:', error);
+    throw error; // Let the application handle the error
   }
 })();
 
@@ -45,7 +32,15 @@ export const testSupabaseConnection = async (): Promise<boolean> => {
 };
 
 // Database types
-export type Database = {
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[]
+
+export interface Database {
   public: {
     Tables: {
       products: {
@@ -119,6 +114,15 @@ export type Database = {
         }
       }
     }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      [_ in never]: never
+    }
+    Enums: {
+      [_ in never]: never
+    }
   }
 }
 
@@ -159,13 +163,12 @@ export async function fetchProductById(id: string): Promise<Product | null> {
 
     if (error) {
       console.error('Error fetching product:', error)
-      handleEnvError(error, 'fetchProductById')
       return null
     }
 
     return data
   } catch (error) {
-    handleEnvError(error, 'fetchProductById')
+    console.error('Error in fetchProductById:', error)
     return null
   }
 }
@@ -180,13 +183,12 @@ export async function fetchProductsByCategory(category: string): Promise<Product
 
     if (error) {
       console.error('Error fetching products by category:', error)
-      handleEnvError(error, 'fetchProductsByCategory')
       return []
     }
 
     return data || []
   } catch (error) {
-    handleEnvError(error, 'fetchProductsByCategory')
+    console.error('Error in fetchProductsByCategory:', error)
     return []
   }
 }
@@ -202,13 +204,12 @@ export async function fetchNewProducts(): Promise<Product[]> {
 
     if (error) {
       console.error('Error fetching new products:', error)
-      handleEnvError(error, 'fetchNewProducts')
       return []
     }
 
     return data || []
   } catch (error) {
-    handleEnvError(error, 'fetchNewProducts')
+    console.error('Error in fetchNewProducts:', error)
     return []
   }
 }
@@ -224,13 +225,12 @@ export async function fetchFeaturedProducts(): Promise<Product[]> {
 
     if (error) {
       console.error('Error fetching featured products:', error)
-      handleEnvError(error, 'fetchFeaturedProducts')
       return []
     }
 
     return data || []
   } catch (error) {
-    handleEnvError(error, 'fetchFeaturedProducts')
+    console.error('Error in fetchFeaturedProducts:', error)
     return []
   }
 }
@@ -244,13 +244,12 @@ export async function fetchCategories(): Promise<Category[]> {
 
     if (error) {
       console.error('Error fetching categories:', error)
-      handleEnvError(error, 'fetchCategories')
       return []
     }
 
     return data || []
   } catch (error) {
-    handleEnvError(error, 'fetchCategories')
+    console.error('Error in fetchCategories:', error)
     return []
   }
 }

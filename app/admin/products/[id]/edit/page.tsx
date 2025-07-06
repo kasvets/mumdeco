@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { supabase, Product, ProductUpdate, uploadProductImage, fetchProductImages, deleteProductImage, fetchOrphanedImages } from '@/lib/supabase';
+import { ProductUpdate } from '@/lib/supabase';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 
@@ -25,8 +25,7 @@ export default function EditProduct() {
   // selectedFiles ve previewUrls artık gereksiz - direkt storage'a yükleme yapıyoruz
   const [existingImages, setExistingImages] = useState<string[]>([]);
   const [deletingImages, setDeletingImages] = useState<string[]>([]);
-  const [orphanedImages, setOrphanedImages] = useState<{url: string, filename: string}[]>([]);
-  const [assigningImages, setAssigningImages] = useState<string[]>([]);
+
   
   // Modal state
   const [modal, setModal] = useState<{
@@ -78,28 +77,34 @@ export default function EditProduct() {
     category: 'model-1',
     image_url: '',
     is_new: false,
-    in_stock: true
+    in_stock: true,
+    rating: null,
+    reviews: 0
   });
 
   useEffect(() => {
     if (productId) {
       fetchProduct();
       fetchExistingImages();
-      fetchOrphanedImagesData();
     }
   }, [productId]);
 
   const fetchProduct = async () => {
     try {
-      const { data, error } = await supabase
-        .from('products')
-        .select('*')
-        .eq('id', productId)
-        .single();
+      const response = await fetch(`/api/admin/products/${productId}`);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      
+      if (result.error) {
+        throw new Error(result.error);
+      }
 
-      if (error) throw error;
-
-      if (data) {
+      if (result.product) {
+        const data = result.product;
         setFormData({
           name: data.name,
           description: data.description,
@@ -108,8 +113,21 @@ export default function EditProduct() {
           category: data.category,
           image_url: data.image_url,
           is_new: data.is_new,
-          in_stock: data.in_stock
+          in_stock: data.in_stock,
+          rating: data.rating,
+          reviews: data.reviews
         });
+
+        // Eğer database'de image_url varsa, onu existing images listesine ekle
+        if (data.image_url) {
+          setExistingImages(prev => {
+            // Eğer URL zaten listede yoksa ekle
+            if (!prev.includes(data.image_url)) {
+              return [data.image_url, ...prev];
+            }
+            return prev;
+          });
+        }
       }
     } catch (error) {
       console.error('Ürün yüklenirken hata:', error);
@@ -124,19 +142,16 @@ export default function EditProduct() {
 
   const fetchExistingImages = async () => {
     try {
-      const images = await fetchProductImages(productId);
-      setExistingImages(images);
+      // Storage'dan bu ürüne ait görselleri getir
+      const response = await fetch(`/api/admin/products/${productId}/images`);
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success && result.images) {
+          setExistingImages(result.images);
+        }
+      }
     } catch (error) {
       console.error('Mevcut görseller yüklenirken hata:', error);
-    }
-  };
-
-  const fetchOrphanedImagesData = async () => {
-    try {
-      const images = await fetchOrphanedImages();
-      setOrphanedImages(images);
-    } catch (error) {
-      console.error('Sahipsiz görseller yüklenirken hata:', error);
     }
   };
 
@@ -160,41 +175,62 @@ export default function EditProduct() {
   };
 
   const performDeleteImage = async (imageUrl: string) => {
-
     try {
-      const success = await deleteProductImage(imageUrl);
-      if (success) {
-        setExistingImages(prev => prev.filter(url => url !== imageUrl));
-        
-        // Eğer silinen görsel ana görsel ise, mevcut görseller arasından yeni bir ana görsel seç
-        if (formData.image_url === imageUrl) {
-          const remainingImages = existingImages.filter(url => url !== imageUrl);
-          if (remainingImages.length > 0) {
-            setFormData(prev => ({ 
-              ...prev, 
-              image_url: remainingImages[0] 
-            }));
-          } else {
-            // Hiç görsel kalmadıysa database'deki image_url'i de temizle
-            setFormData(prev => ({ 
-              ...prev, 
-              image_url: '' 
-            }));
-            // Database'i de güncelle
-            await supabase
-              .from('products')
-              .update({ image_url: '' })
-              .eq('id', productId);
+      // API üzerinden görseli sil
+      const response = await fetch(`/api/admin/images/delete`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ imageUrl })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success) {
+          // State'leri güncelle
+          setExistingImages(prev => prev.filter(url => url !== imageUrl));
+          
+          // Eğer silinen görsel ana görsel ise, mevcut görseller arasından yeni bir ana görsel seç
+          if (formData.image_url === imageUrl) {
+            const remainingImages = existingImages.filter(url => url !== imageUrl);
+            if (remainingImages.length > 0) {
+              setFormData(prev => ({ 
+                ...prev, 
+                image_url: remainingImages[0] 
+              }));
+            } else {
+              // Hiç görsel kalmadıysa database'deki image_url'i de temizle
+              setFormData(prev => ({ 
+                ...prev, 
+                image_url: '' 
+              }));
+              
+              // Database'i de güncelle
+              const updateResponse = await fetch(`/api/admin/products/${productId}`, {
+                method: 'PUT',
+                headers: {
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ image_url: '' })
+              });
+              
+              if (!updateResponse.ok) {
+                console.error('Database image_url temizlenirken hata');
+              }
+            }
           }
+          
+          showModal('success', 'Başarılı!', 'Görsel başarıyla silindi!', true);
+        } else {
+          showModal('error', 'Hata!', result.error || 'Görsel silinirken hata oluştu!');
         }
-        
-        showModal('success', 'Başarılı!', 'Görsel başarıyla silindi!', true);
       } else {
-        showModal('error', 'Hata!', 'Görsel silinirken hata oluştu!');
+        showModal('error', 'Hata!', 'Görsel silinirken sunucu hatası oluştu!');
       }
     } catch (error) {
       console.error('Görsel silinirken hata:', error);
-      showModal('error', 'Hata!', 'Görsel silinirken hata oluştu!');
+      showModal('error', 'Hata!', 'Görsel silinirken beklenmeyen hata oluştu!');
     } finally {
       setDeletingImages(prev => prev.filter(url => url !== imageUrl));
     }
@@ -221,12 +257,23 @@ export default function EditProduct() {
   const performClearMainImage = async () => {
     try {
       // Database'deki image_url'i temizle
-      const { error } = await supabase
-        .from('products')
-        .update({ image_url: '' })
-        .eq('id', productId);
+      const response = await fetch(`/api/admin/products/${productId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ image_url: '' })
+      });
       
-      if (error) throw error;
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      
+      if (result.error) {
+        throw new Error(result.error);
+      }
       
       // Form state'ini güncelle
       setFormData(prev => ({ ...prev, image_url: '' }));
@@ -253,15 +300,40 @@ export default function EditProduct() {
     setLoading(true);
 
     try {
-      const { data, error } = await supabase
-        .from('products')
-        .update(formData)
-        .eq('id', productId)
-        .select()
-        .single();
+      // Eğer image upload işlemi devam ediyorsa bekle
+      if (imageUploading) {
+        showModal('warning', 'Uyarı!', 'Görsel yükleme işlemi devam ediyor, lütfen bekleyin...');
+        setLoading(false);
+        return;
+      }
 
-      if (error) throw error;
+      // Eğer ana görsel yoksa ama mevcut görseller varsa, ilk görseli ana görsel yap
+      let updatedFormData = { ...formData };
+      if (!updatedFormData.image_url && existingImages.length > 0) {
+        updatedFormData.image_url = existingImages[0];
+      }
 
+      console.log('Updating product with data:', updatedFormData);
+      
+      const response = await fetch(`/api/admin/products/${productId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(updatedFormData)
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      
+      if (result.error) {
+        throw new Error(result.error);
+      }
+
+      console.log('Product updated successfully:', result);
       showModal('success', 'Başarılı!', 'Ürün başarıyla güncellendi! Ürün listesine yönlendiriliyorsunuz...', true);
       
       // 2 saniye sonra yönlendir
@@ -298,10 +370,25 @@ export default function EditProduct() {
     // Görseller direkt storage'a yüklenecek, preview gerek yok
 
     try {
-      // Tüm dosyaları gerçek storage'a yükle
-      const uploadPromises = imageFiles.map(file => 
-        uploadProductImage(file, parseInt(productId))
-      );
+      // Tüm dosyaları API üzerinden yükle
+      const uploadPromises = imageFiles.map(async (file) => {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('productId', productId);
+
+        const response = await fetch('/api/admin/upload', {
+          method: 'POST',
+          body: formData
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Upload failed');
+        }
+
+        const result = await response.json();
+        return result.url;
+      });
       
       const uploadedUrls = await Promise.all(uploadPromises);
       const successfulUploads = uploadedUrls.filter(url => url !== null);
@@ -349,6 +436,8 @@ Detaylı rehber için STORAGE_SETUP.md dosyasını inceleyin.`;
     const files = e.target.files;
     if (files) {
       handleFiles(files);
+      // Input'u temizle ki aynı dosyalar tekrar seçilebilsin
+      e.target.value = '';
     }
   };
 
@@ -386,58 +475,7 @@ Detaylı rehber için STORAGE_SETUP.md dosyasını inceleyin.`;
     });
   };
 
-  const assignImageToProduct = async (filename: string, imageUrl: string) => {
-    setAssigningImages(prev => [...prev, filename]);
-    
-    try {
-      // Create new filename with proper product ID
-      const fileExtension = filename.split('.').pop();
-      const timestamp = Date.now();
-      const newFilename = `product-${productId}-${timestamp}.${fileExtension}`;
-      
-      // First, download the image
-      const response = await fetch(imageUrl);
-      const blob = await response.blob();
-      
-      // Upload with new filename
-      const { data, error } = await supabase.storage
-        .from('products')
-        .upload(newFilename, blob, {
-          cacheControl: '3600',
-          upsert: false
-        });
-      
-      if (error) throw error;
-      
-      // Delete the old file
-      await supabase.storage
-        .from('products')
-        .remove([filename]);
-      
-      // Get new public URL
-      const { data: publicData } = supabase.storage
-        .from('products')
-        .getPublicUrl(newFilename);
-      
-      // Update existing images
-      setExistingImages(prev => [...prev, publicData.publicUrl]);
-      
-      // Remove from orphaned images
-      setOrphanedImages(prev => prev.filter(img => img.filename !== filename));
-      
-      // If no main image set, set this as main image
-      if (!formData.image_url) {
-        setFormData(prev => ({ ...prev, image_url: publicData.publicUrl }));
-      }
-      
-      showModal('success', 'Başarılı!', 'Görsel başarıyla bu ürüne atandı!', true);
-    } catch (error) {
-      console.error('Görsel atanırken hata:', error);
-      showModal('error', 'Hata!', 'Görsel atanırken hata oluştu!');
-    } finally {
-      setAssigningImages(prev => prev.filter(f => f !== filename));
-    }
-  };
+
 
   // Modal functions
   const showModal = (type: 'success' | 'error' | 'warning' | 'info', title: string, message: string, showPositiveImage = false) => {
@@ -874,109 +912,9 @@ Detaylı rehber için STORAGE_SETUP.md dosyasını inceleyin.`;
               </div>
             )}
 
-            {/* Database Image URL as fallback */}
-            {existingImages.length === 0 && formData.image_url && (
-              <div className="bg-amber-50 border border-amber-200 p-4 rounded-lg">
-                <label className="block text-sm font-medium text-amber-800 mb-2">
-                  ⚠️ Database'den Kalan Ana Görsel
-                </label>
-                <div className="flex items-start space-x-4">
-                  <div className="relative">
-                    <div className="aspect-square w-32 bg-gray-100 rounded-lg overflow-hidden border">
-                      <img
-                        src={formData.image_url}
-                        alt="Database'den mevcut görsel"
-                        className="w-full h-full object-contain"
-                      />
-                    </div>
-                    <div className="absolute top-2 left-2 bg-green-500 text-white text-xs px-2 py-1 rounded">
-                      Ana Görsel
-                    </div>
-                  </div>
-                  <div className="flex-1">
-                    <div className="text-sm text-amber-700 mb-3">
-                      <p className="font-medium mb-1">Bu görsel database'de kayıtlı ancak storage'da bulunamadı.</p>
-                      <p>Muhtemelen görsel dosyası silinmiş ama database referansı kalmış.</p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={clearMainImage}
-                      className="bg-red-500 hover:bg-red-600 text-white text-sm px-3 py-2 rounded-md transition-colors"
-                    >
-                      Ana Görseli Temizle
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
 
-            {/* Orphaned Images - Images that can be assigned to this product */}
-            {orphanedImages.length > 0 && (
-              <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg">
-                <label className="block text-sm font-medium text-blue-800 mb-2">
-                  🔗 Storage'da Bu Ürüne Atanabilecek Görseller ({orphanedImages.length})
-                </label>
-                <p className="text-sm text-blue-700 mb-4">
-                  Bu görseller daha önce yüklenmiş ancak henüz hiçbir ürüne atanmamış. Bu ürüne atamak için "Ata" butonuna tıklayın.
-                </p>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                  {orphanedImages.map((image, index) => (
-                    <div key={index} className="relative group">
-                      <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden border">
-                        <img
-                          src={image.url}
-                          alt={`Sahipsiz görsel ${index + 1}`}
-                          className="w-full h-full object-contain"
-                        />
-                      </div>
-                      
-                      {/* Assign button */}
-                      <button
-                        type="button"
-                        onClick={() => assignImageToProduct(image.filename, image.url)}
-                        disabled={assigningImages.includes(image.filename)}
-                        className="absolute bottom-2 left-2 bg-blue-500 text-white text-xs px-2 py-1 rounded hover:bg-blue-600 disabled:opacity-50"
-                        title="Bu ürüne ata"
-                      >
-                        {assigningImages.includes(image.filename) ? 'Atanıyor...' : 'Ata'}
-                      </button>
-                      
-                      {/* Delete button */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const deleteOrphanedAction = async () => {
-                            const success = await deleteProductImage(image.url);
-                            if (success) {
-                              setOrphanedImages(prev => prev.filter(img => img.filename !== image.filename));
-                              showModal('success', 'Başarılı!', 'Görsel başarıyla silindi!', true);
-                            } else {
-                              showModal('error', 'Hata!', 'Görsel silinirken hata oluştu!');
-                            }
-                          };
 
-                          showConfirmModal(
-                            'Görseli Kalıcı Olarak Sil',
-                            'Bu görseli kalıcı olarak silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.',
-                            deleteOrphanedAction,
-                            { 
-                              confirmText: 'Sil', 
-                              cancelText: 'İptal', 
-                              isDangerous: true,
-                              showNegativeImage: true
-                            }
-                          );
-                        }}
-                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600 shadow-md"
-                        title="Görseli sil"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+
 
             {/* Image Upload */}
             <div>
@@ -1032,32 +970,34 @@ Detaylı rehber için STORAGE_SETUP.md dosyasını inceleyin.`;
 
             {/* Checkboxes */}
             <div className="space-y-4">
-              <div className="flex items-center">
-                <input
-                  type="checkbox"
-                  id="is_new"
-                  name="is_new"
-                  checked={formData.is_new || false}
-                  onChange={handleInputChange}
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                />
-                <label htmlFor="is_new" className="ml-2 block text-sm text-gray-900">
-                  Yeni ürün olarak işaretle
-                </label>
-              </div>
+              <div className="flex items-center space-x-4">
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id="is_new"
+                    checked={formData.is_new}
+                    onChange={(e) => setFormData({ ...formData, is_new: e.target.checked })}
+                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <label htmlFor="is_new" className="ml-2 block text-sm text-gray-900">
+                    Yeni Ürün
+                  </label>
+                </div>
 
-              <div className="flex items-center">
-                <input
-                  type="checkbox"
-                  id="in_stock"
-                  name="in_stock"
-                  checked={formData.in_stock || false}
-                  onChange={handleInputChange}
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                />
-                <label htmlFor="in_stock" className="ml-2 block text-sm text-gray-900">
-                  Stokta mevcut
-                </label>
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id="in_stock"
+                    checked={formData.in_stock}
+                    onChange={(e) => setFormData({ ...formData, in_stock: e.target.checked })}
+                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <label htmlFor="in_stock" className="ml-2 block text-sm text-gray-900">
+                    Stokta Var
+                  </label>
+                </div>
+
+
               </div>
             </div>
 

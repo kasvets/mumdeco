@@ -325,26 +325,23 @@ export default function AdminProducts() {
   const fetchProducts = async () => {
     try {
       setError(null); // Reset error state
-      console.log('🔄 AdminProducts: Fetching products from Supabase...');
+      console.log('🔄 AdminProducts: Fetching products from API...');
       
-      const { data, error } = await supabase
-        .from('products')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        console.error('❌ AdminProducts: Supabase error details:', {
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code
-        });
-        throw error;
+      const response = await fetch('/api/admin/products');
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
       
-      console.log('✅ AdminProducts: Products fetched successfully:', data?.length || 0, 'products');
-      console.log('📦 AdminProducts: Sample products:', data?.slice(0, 2));
-      setProducts(data || []);
+      const result = await response.json();
+      
+      if (result.error) {
+        throw new Error(result.error);
+      }
+      
+      console.log('✅ AdminProducts: Products fetched successfully:', result.products?.length || 0, 'products');
+      console.log('📦 AdminProducts: Sample products:', result.products?.slice(0, 2));
+      setProducts(result.products || []);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Bilinmeyen hata';
       console.error('❌ AdminProducts: Error details:', {
@@ -363,24 +360,21 @@ export default function AdminProducts() {
 
   const fetchCategories = async () => {
     try {
-      const { data, error } = await supabase
-        .from('products')
-        .select('category')
-        .order('category');
-
-      if (error) {
-        console.error('Supabase error details (categories):', {
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code
-        });
-        throw error;
+      const response = await fetch('/api/debug/products');
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      
+      if (result.error) {
+        throw new Error(result.error);
       }
 
-      if (data) {
-        const uniqueCategories = [...new Set(data.map(item => item.category))];
-        setCategories(uniqueCategories);
+      if (result.products) {
+        const uniqueCategories = [...new Set(result.products.map((item: any) => item.category).filter((cat: any) => typeof cat === 'string'))];
+        setCategories(uniqueCategories as string[]);
       }
     } catch (error) {
       console.error('Kategoriler yüklenirken hata:', {
@@ -412,19 +406,18 @@ export default function AdminProducts() {
 
   const performDeleteProduct = async (id: number) => {
     try {
-      const { error } = await supabase
-        .from('products')
-        .delete()
-        .eq('id', id);
-
-      if (error) {
-        console.error('Supabase error details (delete):', {
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code
-        });
-        throw error;
+      const response = await fetch(`/api/admin/products?id=${id}`, {
+        method: 'DELETE'
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      
+      if (result.error) {
+        throw new Error(result.error);
       }
       
       setProducts(products.filter(p => p.id !== id));
@@ -442,19 +435,22 @@ export default function AdminProducts() {
 
   const toggleStock = async (id: number, currentStock: boolean) => {
     try {
-      const { error } = await supabase
-        .from('products')
-        .update({ in_stock: !currentStock })
-        .eq('id', id);
-
-      if (error) {
-        console.error('Supabase error details (toggle stock):', {
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code
-        });
-        throw error;
+      const response = await fetch(`/api/admin/products?id=${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ in_stock: !currentStock })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      
+      if (result.error) {
+        throw new Error(result.error);
       }
       
       setProducts(products.map(p => 

@@ -13,7 +13,7 @@ interface ClientLayoutProps {
 const ClientLayout: React.FC<ClientLayoutProps> = ({ children }) => {
   const pathname = usePathname()
   const isAdminPage = pathname.startsWith('/admin')
-
+  
   return (
     <AuthProvider>
       {!isAdminPage && <Navbar />}

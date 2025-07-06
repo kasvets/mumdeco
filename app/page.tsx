@@ -1,3 +1,5 @@
+'use client';
+
 import Image from "next/image";
 import Link from "next/link";
 import HeroSlider from "./components/HeroSlider";
@@ -5,6 +7,8 @@ import CollectionSlider from "./components/CollectionSlider";
 import BestSellersSlider from "./components/BestSellersSlider";
 import { Flower2, Heart, Sparkles, Leaf, Crown } from "lucide-react";
 import { fetchFeaturedProducts } from "./products/data/products";
+import { useState, useEffect } from "react";
+import { Product } from "@/lib/supabase";
 
 const collections = [
   {
@@ -51,9 +55,38 @@ const collections = [
   }
 ];
 
-export default async function Home() {
-  // Database'den gerçek ürünleri çek
-  const bestSellers = await fetchFeaturedProducts(10);
+export default function Home() {
+  const [bestSellers, setBestSellers] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadProducts = async () => {
+      try {
+        console.log('🔍 Loading featured products...');
+        const products = await fetchFeaturedProducts(10);
+        console.log('🔍 Featured products loaded:', products);
+        setBestSellers(products);
+      } catch (error) {
+        console.error('🔍 Error loading featured products:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadProducts();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
+          <p className="text-gray-600">Ürünler yükleniyor...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <main className="flex flex-col min-h-screen mt-[180px] md:mt-[200px]">
       {/* Hero Section */}

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSupabaseClient } from '@/lib/supabase-server';
+import { createServerSupabaseClient } from '@/lib/supabase-server';
 
 // Token'dan kullanıcı ID'sini al
 async function getUserFromToken(request: NextRequest) {
@@ -27,110 +28,34 @@ async function getUserFromToken(request: NextRequest) {
 }
 
 // Kullanıcı profil bilgilerini getir
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
-    // Environment variables kontrolü
-    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_KEY) {
-      console.error('Missing environment variables:', {
-        SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL ? 'SET' : 'MISSING',
-        SERVICE_KEY: process.env.SUPABASE_SERVICE_KEY ? 'SET' : 'MISSING'
-      });
-      return NextResponse.json(
-        { error: 'Sunucu yapılandırma hatası.' },
-        { status: 500 }
-      );
-    }
-
-    const user = await getUserFromToken(request);
+    const supabase = createServerSupabaseClient();
     
-    if (!user) {
-      return NextResponse.json(
-        { error: 'Yetkisiz erişim. Lütfen giriş yapın.' },
-        { status: 401 }
-      );
+    // Get session
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    
+    if (sessionError || !session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = getServerSupabaseClient();
-
-    // Profil bilgilerini al
-    const { data: profileData, error: profileError } = await supabase
+    // Get user profile
+    const { data: profile, error: profileError } = await supabase
       .from('user_profiles')
-      .select(`
-        *,
-        user_addresses (
-          id,
-          address_title,
-          full_name,
-          phone,
-          address_line1,
-          address_line2,
-          city,
-          district,
-          postal_code,
-          country,
-          is_default,
-          is_billing_default
-        ),
-        user_preferences (
-          theme,
-          language,
-          currency,
-          favorite_categories,
-          price_range_min,
-          price_range_max,
-          email_order_updates,
-          email_promotions,
-          email_newsletter,
-          sms_order_updates,
-          sms_promotions,
-          push_order_updates,
-          push_promotions
-        )
-      `)
-      .eq('id', user.id)
+      .select('*')
+      .eq('id', session.user.id)
       .single();
 
     if (profileError) {
-      console.error('Profile fetch error:', profileError);
-      return NextResponse.json(
-        { error: 'Profil bilgileri alınamadı.' },
-        { status: 500 }
-      );
+      console.error('Error fetching user profile:', profileError);
+      return NextResponse.json({ error: 'Profile not found' }, { status: 404 });
     }
 
-    // Son aktivite bilgilerini al
-    const { data: lastActivityData } = await supabase
-      .from('user_activity_logs')
-      .select('activity_type, activity_description, created_at')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-      .limit(5);
-
-    return NextResponse.json({
-      user: {
-        id: profileData.id,
-        email: profileData.email,
-        fullName: profileData.full_name,
-        phone: profileData.phone,
-        avatarUrl: profileData.avatar_url,
-        birthDate: profileData.birth_date,
-        gender: profileData.gender,
-        emailVerified: profileData.email_verified,
-        phoneVerified: profileData.phone_verified,
-        accountStatus: profileData.account_status,
-        createdAt: profileData.created_at,
-        lastLoginAt: profileData.last_login_at,
-        referralCode: profileData.referral_code,
-      },
-      addresses: profileData.user_addresses || [],
-      preferences: profileData.user_preferences?.[0] || {},
-      recentActivity: lastActivityData || [],
-    });
-
+    return NextResponse.json(profile);
   } catch (error) {
-    console.error('Profile GET error:', error);
+    console.error('Error in user profile route:', error);
     return NextResponse.json(
-      { error: 'Sunucu hatası oluştu.' },
+      { error: 'Internal server error' }, 
       { status: 500 }
     );
   }

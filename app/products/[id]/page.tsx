@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { ChevronLeftIcon, ChevronRightIcon, HeartIcon, ShoppingCartIcon } from '@heroicons/react/24/outline'
 import { HeartIcon as HeartIconSolid } from '@heroicons/react/24/solid'
 import Image from 'next/image'
-import { fetchProductById, fetchProductImages, Product } from '@/lib/supabase'
+import { Product } from '@/lib/supabase'
 
 export default function ProductDetailPage() {
   const params = useParams()
@@ -17,64 +17,97 @@ export default function ProductDetailPage() {
   const [isWishlisted, setIsWishlisted] = useState(false)
   const [quantity, setQuantity] = useState(1)
 
+  // Storage'dan tüm görselleri yükle
+  const loadProductImages = async (productId: number, mainImageUrl: string | null) => {
+    try {
+      console.log('🖼️ Loading all images for product:', productId);
+      
+      // Storage'dan bu ürüne ait tüm görselleri çek
+      const response = await fetch(`/api/admin/products/${productId}/images`);
+      const result = await response.json();
+      
+      const allImages: string[] = [];
+      
+      // Ana görseli ilk sıraya koy (varsa)
+      if (mainImageUrl) {
+        console.log('🎯 Adding main image first:', mainImageUrl);
+        allImages.push(mainImageUrl);
+      }
+      
+      // Storage'dan gelen diğer görselleri ekle (ana görsel değilse)
+      if (result.success && result.images && result.images.length > 0) {
+        console.log('📦 Adding storage images:', result.images.length);
+        result.images.forEach((imageUrl: string) => {
+          // Ana görseli tekrar eklememek için kontrol et
+          if (imageUrl !== mainImageUrl && !allImages.includes(imageUrl)) {
+            allImages.push(imageUrl);
+          }
+        });
+      }
+      
+      // Hiç görsel yoksa fallback görseller kullan
+      if (allImages.length === 0) {
+        console.log('🎨 No images found, using fallback static images');
+        allImages.push(
+          `/Model1/Adriatic/m1a1.webp`,
+          `/Model1/Adriatic/m1a2.webp`,
+          `/Model1/Adriatic/m1a3.webp`,
+          `/Model1/Adriatic/m1a4.webp`,
+          `/Model1/Adriatic/m1a5.webp`
+        );
+      }
+      
+      console.log('🎯 Final images array:', allImages);
+      setProductImages(allImages);
+      
+    } catch (error) {
+      console.error('❌ Error loading product images:', error);
+      // Hata durumunda fallback görseller
+      setProductImages([
+        `/Model1/Adriatic/m1a1.webp`,
+        `/Model1/Adriatic/m1a2.webp`,
+        `/Model1/Adriatic/m1a3.webp`,
+        `/Model1/Adriatic/m1a4.webp`,
+        `/Model1/Adriatic/m1a5.webp`
+      ]);
+    }
+  };
+
   useEffect(() => {
     const loadProduct = async () => {
       try {
         console.log('🏷️ Loading product with ID:', params.id);
-        const productData = await fetchProductById(params.id as string)
-        console.log('📦 Product data:', productData);
-        setProduct(productData)
+        
+        // API route'dan ürün bilgisini çek
+        const response = await fetch(`/api/products/${params.id}`);
+        const result = await response.json();
+        
+        console.log('📦 API response:', { status: response.status, data: result });
+        
+        if (!response.ok) {
+          console.error('❌ API Error:', result);
+          return;
+        }
+        
+        const productData = result.product;
+        console.log('✅ Product data loaded:', productData);
+        setProduct(productData);
         
         if (productData) {
-          console.log('🖼️ Starting to fetch images for product:', params.id);
-          // Fetch images from storage
-          const images = await fetchProductImages(params.id as string)
-          console.log('📸 Images from storage:', images);
-          
-          // Combine storage images with database image_url (if exists)
-          const allImages: string[] = []
-          
-          if (productData.image_url) {
-            console.log('💾 Adding database image_url:', productData.image_url);
-            allImages.push(productData.image_url)
-          }
-          
-          // Add storage images that are different from main image_url
-          images.forEach(img => {
-            if (!allImages.includes(img)) {
-              console.log('➕ Adding storage image:', img);
-              allImages.push(img)
-            } else {
-              console.log('⏭️ Skipping duplicate image:', img);
-            }
-          })
-          
-          // If no images found, use fallback static images
-          if (allImages.length === 0) {
-            console.log('🎨 No images found, using fallback static images');
-            allImages.push(
-              `/Model1/Adriatic/m1a1.webp`,
-              `/Model1/Adriatic/m1a2.webp`,
-              `/Model1/Adriatic/m1a3.webp`,
-              `/Model1/Adriatic/m1a4.webp`,
-              `/Model1/Adriatic/m1a5.webp`
-            )
-          }
-          
-          console.log('🎯 Final combined images array:', allImages);
-          setProductImages(allImages)
+          // Storage'dan bu ürüne ait tüm görselleri çek
+          await loadProductImages(productData.id, productData.image_url);
         }
       } catch (error) {
-        console.error('❌ Error loading product:', error)
+        console.error('❌ Error loading product:', error);
       } finally {
-        setIsLoading(false)
+        setIsLoading(false);
       }
-    }
+    };
 
     if (params.id) {
-      loadProduct()
+      loadProduct();
     }
-  }, [params.id])
+  }, [params.id]);
 
   if (isLoading) {
     return (

@@ -1,44 +1,56 @@
-import { supabase, Product } from '@/lib/supabase';
+import { Product } from '@/lib/supabase';
 
-// Supabase'den ürünleri getir (tüm ürünler)
-export const fetchProducts = async (): Promise<Product[]> => {
+// Base URL'i al (server-side ve client-side uyumlu)
+const getBaseUrl = () => {
+  if (typeof window !== 'undefined') {
+    // Client-side
+    return window.location.origin;
+  }
+  
+  // Server-side
+  if (process.env.NEXT_PUBLIC_SITE_URL) {
+    return process.env.NEXT_PUBLIC_SITE_URL;
+  }
+  
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}`;
+  }
+  
+  // Development fallback
+  return 'http://localhost:3000';
+};
+
+// API route'ları kullanarak ürünleri getir (client-side uyumlu)
+export async function fetchProducts(): Promise<Product[]> {
   try {
-    console.log('🔄 Fetching products...');
+    const baseUrl = getBaseUrl();
+    const response = await fetch(`${baseUrl}/api/debug/products`);
     
-    const { data, error } = await supabase
-      .from('products')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      console.error('❌ Error fetching products:', error);
-      throw new Error(`Database error: ${error.message}`);
+    if (!response.ok) {
+      throw new Error('Failed to fetch products');
     }
 
-    console.log('✅ Successfully fetched', data?.length || 0, 'products');
-    return data || [];
+    const data = await response.json();
+    return data.products || [];
+
   } catch (error) {
-    console.error('❌ Exception in fetchProducts:', error);
+    console.error('Error fetching products:', error);
     throw error;
   }
-};
+}
 
 // Kategoriye göre ürünleri getir
 export const fetchProductsByCategory = async (category: string): Promise<Product[]> => {
   try {
-    const { data, error } = await supabase
-      .from('products')
-      .select('*')
-      .eq('category', category)
-      .eq('in_stock', true)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      console.error('Kategoriye göre ürünler yüklenirken hata:', error);
-      return [];
+    const baseUrl = getBaseUrl();
+    const response = await fetch(`${baseUrl}/api/debug/products?category=${encodeURIComponent(category)}`);
+    
+    if (!response.ok) {
+      throw new Error('Failed to fetch products by category');
     }
 
-    return data || [];
+    const data = await response.json();
+    return data.products || [];
   } catch (error) {
     console.error('Kategoriye göre ürünler yüklenirken hata:', error);
     return [];
@@ -48,18 +60,15 @@ export const fetchProductsByCategory = async (category: string): Promise<Product
 // Tek ürün getir
 export const fetchProductById = async (id: number): Promise<Product | null> => {
   try {
-    const { data, error } = await supabase
-      .from('products')
-      .select('*')
-      .eq('id', id)
-      .single();
-
-    if (error) {
-      console.error('Ürün yüklenirken hata:', error);
-      return null;
+    const baseUrl = getBaseUrl();
+    const response = await fetch(`${baseUrl}/api/debug/products/${id}`);
+    
+    if (!response.ok) {
+      throw new Error('Failed to fetch product');
     }
 
-    return data;
+    const data = await response.json();
+    return data.product || null;
   } catch (error) {
     console.error('Ürün yüklenirken hata:', error);
     return null;
@@ -69,20 +78,15 @@ export const fetchProductById = async (id: number): Promise<Product | null> => {
 // Yeni ürünleri getir
 export const fetchNewProducts = async (limit: number = 10): Promise<Product[]> => {
   try {
-    const { data, error } = await supabase
-      .from('products')
-      .select('*')
-      .eq('is_new', true)
-      .eq('in_stock', true)
-      .order('created_at', { ascending: false })
-      .limit(limit);
-
-    if (error) {
-      console.error('Yeni ürünler yüklenirken hata:', error);
-      return [];
+    const baseUrl = getBaseUrl();
+    const response = await fetch(`${baseUrl}/api/debug/products?new=true&limit=${limit}`);
+    
+    if (!response.ok) {
+      throw new Error('Failed to fetch new products');
     }
 
-    return data || [];
+    const data = await response.json();
+    return data.products || [];
   } catch (error) {
     console.error('Yeni ürünler yüklenirken hata:', error);
     return [];
@@ -92,19 +96,15 @@ export const fetchNewProducts = async (limit: number = 10): Promise<Product[]> =
 // Öne çıkan ürünleri getir (popüler/yeni olanlar)
 export const fetchFeaturedProducts = async (limit: number = 10): Promise<Product[]> => {
   try {
-    const { data, error } = await supabase
-      .from('products')
-      .select('*')
-      .eq('in_stock', true)
-      .order('created_at', { ascending: false })
-      .limit(limit);
-
-    if (error) {
-      console.error('Öne çıkan ürünler yüklenirken hata:', error);
-      return [];
+    const baseUrl = getBaseUrl();
+    const response = await fetch(`${baseUrl}/api/debug/products?featured=true&limit=${limit}`);
+    
+    if (!response.ok) {
+      throw new Error('Failed to fetch featured products');
     }
 
-    return data || [];
+    const data = await response.json();
+    return data.products || [];
   } catch (error) {
     console.error('Öne çıkan ürünler yüklenirken hata:', error);
     return [];
@@ -114,22 +114,20 @@ export const fetchFeaturedProducts = async (limit: number = 10): Promise<Product
 // Kategorileri getir
 export const fetchCategories = async () => {
   try {
-    const { data, error } = await supabase
-      .from('categories')
-      .select('*')
-      .order('name');
-
-    if (error) {
-      console.error('Kategoriler yüklenirken hata:', error);
-      return [];
+    const baseUrl = getBaseUrl();
+    const response = await fetch(`${baseUrl}/api/debug/categories`);
+    
+    if (!response.ok) {
+      throw new Error('Failed to fetch categories');
     }
 
-    return data || [];
+    const data = await response.json();
+    return data.categories || [];
   } catch (error) {
     console.error('Kategoriler yüklenirken hata:', error);
     return [];
   }
 };
 
-// Eski statik array'i kaldırdık - artık Supabase'den çekiyoruz
+// Eski statik array'i kaldırdık - artık API route'lardan çekiyoruz
 export const products: Product[] = []; 

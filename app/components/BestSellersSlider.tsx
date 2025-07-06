@@ -1,6 +1,5 @@
 'use client';
 
-import Image from "next/image";
 import Link from "next/link";
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Navigation } from 'swiper/modules';
@@ -21,6 +20,12 @@ interface BestSellersSliderProps {
 export default function BestSellersSlider({ products }: BestSellersSliderProps) {
   const [swiper, setSwiper] = useState<SwiperType | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
+
+  // Debug: Sadece gerekli olan image_url bilgisini göster
+  console.log('BestSellersSlider - Total products:', products.length);
+  products.forEach((product, index) => {
+    console.log(`Product ${index + 1}: ${product.name} - Image URL: ${product.image_url ? 'EXISTS' : 'MISSING'}`);
+  });
 
   // Grup ürünleri 4'lü gruplara ayır
   const productGroups = [];
@@ -49,12 +54,23 @@ export default function BestSellersSlider({ products }: BestSellersSliderProps) 
                 >
                   {/* Product Image */}
                   <div className="relative aspect-[4/5] overflow-hidden bg-gray-50">
-                    <Image
-                      src={product.image_url || '/Model1/Adriatic/m1a1.webp'}
-                      alt={product.name}
-                      fill
-                      className="object-cover transition-transform duration-700 group-hover:scale-110"
-                    />
+                    {product.image_url ? (
+                      <img
+                        src={product.image_url}
+                        alt={product.name}
+                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                        onError={(e) => {
+                          console.error('Database image failed to load:', product.image_url, 'for product:', product.name);
+                        }}
+                        onLoad={() => {
+                          console.log('Database image loaded successfully:', product.image_url, 'for product:', product.name);
+                        }}
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                        <p className="text-gray-500 text-sm">Görsel yükleniyor...</p>
+                      </div>
+                    )}
                     {/* Modern overlay efekti */}
                     <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 transition-all duration-300" />
                     

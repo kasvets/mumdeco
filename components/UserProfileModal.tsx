@@ -3,19 +3,23 @@
 import { useState, useEffect } from 'react';
 import { X, User, Mail, Phone, MapPin, Heart, Package, CreditCard, Settings, LogOut, Edit2, Loader2 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
-import { supabaseClient } from '@/lib/supabase-client';
+import { supabase } from '@/lib/supabase-client';
 
 interface UserProfileModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose }) => {
-  const { user, userProfile, loading: authLoading, signInWithGoogle, signOut, refreshProfile } = useAuth();
+  const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose }) => {
+  const { user, userProfile, loading: authLoading, signInWithGoogle, signOut, refreshProfile, checkAndUpdateSession } = useAuth();
   const [activeTab, setActiveTab] = useState<'profile' | 'login' | 'register'>('login');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [forceRender, setForceRender] = useState(0);
+
+
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedName, setEditedName] = useState('');
   const [isEditingEmail, setIsEditingEmail] = useState(false);
@@ -50,7 +54,7 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose }) 
   const getValidAuthToken = async () => {
     try {
       // First try to get token from current Supabase session
-      const { data: { session }, error } = await supabaseClient.auth.getSession();
+      const { data: { session }, error } = await supabase.auth.getSession();
       
       if (error) {
         console.error('Session error:', error);
@@ -67,7 +71,7 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose }) 
           return session.access_token;
         } else {
           // Token expired, try to refresh
-          const { data: refreshedSession, error: refreshError } = await supabaseClient.auth.refreshSession();
+          const { data: refreshedSession, error: refreshError } = await supabase.auth.refreshSession();
           
           if (refreshError || !refreshedSession.session?.access_token) {
             throw new Error('Oturum süresi dolmuş. Lütfen tekrar giriş yapın.');
@@ -77,10 +81,18 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose }) 
         }
       }
 
-      // Fallback to localStorage token (for email/password login)
-      const storedToken = localStorage.getItem('auth_token');
-      if (storedToken) {
-        return storedToken;
+      // Fallback to localStorage session (for email/password login)
+      const storedSession = localStorage.getItem('auth_session');
+      if (storedSession) {
+        try {
+          const sessionData = JSON.parse(storedSession);
+          if (sessionData.access_token) {
+            return sessionData.access_token;
+          }
+        } catch (error) {
+          console.error('Session parse error:', error);
+          // Let Supabase handle session cleanup
+        }
       }
 
       throw new Error('Oturum bulunamadı. Lütfen tekrar giriş yapın.');
@@ -95,6 +107,13 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose }) 
     if (!user) return;
     
     try {
+      // Sadece Google auth için adres bilgisi çek
+      // Manuel login için skip et
+      if (!user.app_metadata?.provider || user.app_metadata.provider !== 'google') {
+        console.log('Manual login detected, skipping address fetch');
+        return;
+      }
+
       const token = await getValidAuthToken();
 
       const response = await fetch('/api/user/profile', {
@@ -105,9 +124,9 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose }) 
       });
 
       if (response.status === 401) {
-        // Token expired or invalid, clear stored token
-        localStorage.removeItem('auth_token');
-        throw new Error('Oturum süresi dolmuş. Lütfen tekrar giriş yapın.');
+        // Token expired or invalid - sadece log et, hata atma
+        console.log('Token expired or invalid, skipping address fetch');
+        return; // Hata atmak yerine sessizce çık
       }
 
       if (response.ok) {
@@ -117,26 +136,61 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose }) 
         }
       }
     } catch (error: any) {
-      console.error('Address fetch error:', error);
-      if (error.message.includes('Oturum')) {
-        setError(error.message);
-      }
+      // Tüm hataları sessizce yakala
+      console.log('Address fetch skipped:', error.message);
+      // Hata state'ini set etme - sadece log et
     }
   };
 
   // Auth state'e göre modal durumunu ayarla
   useEffect(() => {
-    if (user && userProfile) {
-      // Kullanıcı giriş yapmış - direkt profil sekmesine geç
+    console.log('AUTH STATE EFFECT - User:', !!user, 'Tab:', activeTab, 'Success:', success);
+    
+    if (user) {
+      // Kullanıcı giriş yapmış - profil sekmesine geç
       setActiveTab('profile');
       setIsLoading(false);
-      fetchUserAddress(); // Adres bilgisini çek
+      fetchUserAddress();
+      
+      // Başarılı giriş sonrası success mesajını temizle
+      if (success && (success.includes('Giriş başarılı!') || success.includes('Google ile giriş başarılı'))) {
+        setTimeout(() => setSuccess(null), 3000);
+      }
     } else {
-      // Kullanıcı giriş yapmamış
+      // Kullanıcı giriş yapmamış - login sekmesine geç
       setActiveTab('login');
       setIsLoading(false);
+      
+      // Logout success mesajını kontrol et
+      if (success && success.includes('Başarıyla çıkış yapıldı')) {
+        setTimeout(() => setSuccess(null), 3000);
+      }
     }
-  }, [user, userProfile]);
+  }, [user, userProfile, success, isLoggingOut]);
+
+  // Logout tamamlandığında özel handling
+  useEffect(() => {
+    if (isLoggingOut && !user) {
+      console.log('LOGOUT COMPLETE - Setting success message');
+      setSuccess('Başarıyla çıkış yapıldı.');
+      setActiveTab('login');
+      setIsLoggingOut(false);
+      setForceRender(prev => prev + 1);
+      
+      // Success mesajını 4 saniye sonra temizle
+      setTimeout(() => {
+        setSuccess(null);
+      }, 4000);
+    }
+  }, [isLoggingOut, user]);
+
+  // Modal açıldığında sadece error'ı temizle (success mesajını koruyalım)
+  useEffect(() => {
+    if (isOpen) {
+      setError(null);
+      // setSuccess(null); - Logout mesajı gösterilmesi için success'i temizlemeyelim
+    }
+  }, [isOpen]);
 
   // API çağrıları
   const handleLogin = async (e: React.FormEvent) => {
@@ -146,30 +200,42 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose }) 
     setIsLoading(true);
 
     try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: loginForm.email,
-          password: loginForm.password,
-        }),
+      // Mevcut sayfayı kaydet (modal kapatıldığında geri dönmek için)
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('auth_return_url', window.location.pathname + window.location.search);
+        console.log('Saved return URL for manual login:', window.location.pathname + window.location.search);
+      }
+
+      // Sadece client-side Supabase auth kullan
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email: loginForm.email,
+        password: loginForm.password,
       });
 
-      const data = await response.json();
+      if (authError) {
+        console.error('Login error:', authError);
+        
+        // Türkçe hata mesajları
+        let errorMessage = 'Giriş sırasında bir hata oluştu.';
+        
+        if (authError.message.includes('Invalid login credentials')) {
+          errorMessage = 'E-posta veya şifre hatalı.';
+        } else if (authError.message.includes('Email not confirmed')) {
+          errorMessage = 'E-posta adresinizi doğrulamanız gerekiyor.';
+        } else if (authError.message.includes('too many requests')) {
+          errorMessage = 'Çok fazla giriş denemesi. Lütfen daha sonra tekrar deneyin.';
+        }
+        
+        throw new Error(errorMessage);
+      }
 
-      if (!response.ok) {
-        throw new Error(data.error || 'Giriş yapılamadı');
+      if (!authData.user) {
+        throw new Error('Giriş yapılamadı. Lütfen tekrar deneyin.');
       }
 
       // Başarılı giriş
-      setSuccess(data.message);
-      
-      // Token'ı localStorage'a kaydet
-      if (data.session.access_token) {
-        localStorage.setItem('auth_token', data.session.access_token);
-      }
+      console.log('Login successful:', authData.user.email);
+      setSuccess('Giriş başarılı!');
       
       // Formu temizle
       setLoginForm({
@@ -177,6 +243,8 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose }) 
         password: '',
         rememberMe: false,
       });
+
+      // Auth state değişikliği useEffect'te yakalanacak ve otomatik olarak profil sekmesine geçecek
 
     } catch (error: any) {
       setError(error.message);
@@ -204,28 +272,52 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose }) 
       return;
     }
 
+    // Şifre uzunluğu kontrolü
+    if (registerForm.password.length < 6) {
+      setError('Şifre en az 6 karakter olmalıdır.');
+      setIsLoading(false);
+      return;
+    }
+
     try {
-      const response = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+      // Mevcut sayfayı kaydet (kayıt sonrası geri dönmek için)
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('auth_return_url', window.location.pathname + window.location.search);
+        console.log('Saved return URL for register:', window.location.pathname + window.location.search);
+      }
+      
+      // Sadece client-side Supabase auth kullan
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: registerForm.email,
+        password: registerForm.password,
+        options: {
+          data: {
+            full_name: registerForm.fullName,
+            phone: registerForm.phone || null,
+          },
         },
-        body: JSON.stringify({
-          fullName: registerForm.fullName,
-          email: registerForm.email,
-          phone: registerForm.phone,
-          password: registerForm.password,
-        }),
       });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Kayıt yapılamadı');
+      if (authError) {
+        console.error('Register error:', authError);
+        
+        // Türkçe hata mesajları
+        let errorMessage = 'Kayıt sırasında bir hata oluştu.';
+        
+        if (authError.message.includes('already registered') || authError.message.includes('User already registered')) {
+          errorMessage = 'Bu e-posta adresi zaten kayıtlı.';
+        } else if (authError.message.includes('invalid email')) {
+          errorMessage = 'Geçersiz e-posta adresi.';
+        } else if (authError.message.includes('password')) {
+          errorMessage = 'Şifre çok zayıf. Lütfen daha güçlü bir şifre seçin.';
+        }
+        
+        throw new Error(errorMessage);
       }
 
       // Başarılı kayıt
-      setSuccess(data.message);
+      console.log('Registration successful:', authData.user?.email);
+      setSuccess('Kayıt başarılı! E-posta adresinize doğrulama linki gönderildi.');
       
       // Formu temizle
       setRegisterForm({
@@ -255,8 +347,14 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose }) 
     setError(null);
     
     try {
+      // Mevcut sayfayı kaydet (redirect için)
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('auth_return_url', window.location.pathname + window.location.search);
+        console.log('Saved return URL:', window.location.pathname + window.location.search);
+      }
+      
       await signInWithGoogle();
-      // Success mesajını burada gösterme - auth state change'de gösterilecek
+      setSuccess('Google ile giriş başarılı!');
     } catch (error: any) {
       setError(error.message || 'Google ile giriş yapılamadı.');
       setIsLoading(false);
@@ -265,21 +363,76 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose }) 
   };
 
   const handleLogout = async () => {
+    // Prevent multiple clicks
+    if (isLoading) {
+      console.log('🚪 LOGOUT: Already in progress, ignoring...');
+      return;
+    }
+    
+    console.log('🚪 LOGOUT: handleLogout called');
     setIsLoading(true);
+    setIsLoggingOut(true);
+    setError(null);
+    
+    // Set a timeout to force logout completion
+    const forceLogoutTimeout = setTimeout(() => {
+      console.log('🚪 LOGOUT: Force completing logout due to timeout');
+      onClose();
+      console.log('🚪 LOGOUT: Redirecting to home due to timeout...');
+      window.location.href = '/';
+    }, 3000); // 3 seconds timeout
     
     try {
-      await signOut();
-      localStorage.removeItem('auth_token'); // Clear stored token
-      setSuccess('Başarıyla çıkış yapıldı.');
+      console.log('🚪 LOGOUT: Starting logout process...');
+      console.log('🚪 LOGOUT: Current user before logout:', user ? user.email : 'No user');
       
-      // Close modal after logout
-      setTimeout(() => {
-        onClose();
-      }, 1500);
+             // NUCLEAR OPTION: Complete session destruction
+       console.log('🚪 LOGOUT: Starting nuclear session cleanup...');
+       
+       // 1. Close modal immediately
+       onClose();
+       
+       // 2. Clear ALL storage types
+       if (typeof window !== 'undefined') {
+         // Clear localStorage completely
+         localStorage.clear();
+         
+         // Clear sessionStorage
+         sessionStorage.clear();
+         
+         // Clear all cookies
+         document.cookie.split(";").forEach((c) => {
+           document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+         });
+         
+         console.log('🚪 LOGOUT: All storage cleared');
+       }
+       
+       // 3. Try Supabase signOut (but don't wait for it)
+       signOut().catch(error => {
+         console.log('🚪 LOGOUT: Supabase signOut error (ignoring):', error);
+       });
+       
+       // 4. Force redirect to home page instead of reload
+       console.log('🚪 LOGOUT: Redirecting to home page...');
+       window.location.href = '/';
+       
+       // Clear timeout since we completed successfully
+       clearTimeout(forceLogoutTimeout);
+       
+       // No need for other logic, we're reloading the page
+      
     } catch (error: any) {
-      setError('Çıkış yapılırken hata oluştu.');
+      console.error('🚪 LOGOUT: Logout error:', error);
+      clearTimeout(forceLogoutTimeout);
+      
+      // Close modal and redirect on error too
+      onClose();
+      console.log('🚪 LOGOUT: Redirecting to home after error...');
+      window.location.href = '/';
     } finally {
-      setIsLoading(false);
+      // Page will reload, no need to set loading state
+      console.log('🚪 LOGOUT: Logout process completed');
     }
   };
 
@@ -316,7 +469,6 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose }) 
       });
 
       if (response.status === 401) {
-        localStorage.removeItem('auth_token');
         throw new Error('Oturum süresi dolmuş. Lütfen tekrar giriş yapın.');
       }
 
@@ -380,7 +532,6 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose }) 
       });
 
       if (response.status === 401) {
-        localStorage.removeItem('auth_token');
         throw new Error('Oturum süresi dolmuş. Lütfen tekrar giriş yapın.');
       }
 
@@ -443,7 +594,6 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose }) 
       });
 
       if (response.status === 401) {
-        localStorage.removeItem('auth_token');
         throw new Error('Oturum süresi dolmuş. Lütfen tekrar giriş yapın.');
       }
 
@@ -522,7 +672,6 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose }) 
       });
 
       if (response.status === 401) {
-        localStorage.removeItem('auth_token');
         throw new Error('Oturum süresi dolmuş. Lütfen tekrar giriş yapın.');
       }
 
@@ -577,6 +726,14 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose }) 
     setError(null);
     setSuccess(null);
     setIsLoading(false);
+    setIsLoggingOut(false);
+    
+    // Editing state'lerini temizle
+    setIsEditingName(false);
+    setIsEditingEmail(false);
+    setIsEditingPhone(false);
+    setIsEditingAddress(false);
+    
     onClose();
   };
 
@@ -587,7 +744,10 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose }) 
       className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
       onClick={handleBackdropClick}
     >
-      <div className="bg-white rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+      <div 
+        key={`modal-${forceRender}-${user?.id || 'nouser'}-${activeTab}`}
+        className="bg-white rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto shadow-2xl"
+      >
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-100">
           <h2 className="text-2xl font-serif font-medium">
@@ -610,8 +770,18 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose }) 
             </div>
           )}
           {success && (
-            <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
-              <p className="text-green-800 text-sm">{success}</p>
+            <div className={`mb-4 p-4 rounded-lg border-2 ${
+              success.includes('Başarıyla çıkış yapıldı') 
+                ? 'bg-blue-50 border-blue-300 shadow-lg' 
+                : 'bg-green-50 border-green-200'
+            }`}>
+              <p className={`text-sm font-bold ${
+                success.includes('Başarıyla çıkış yapıldı') 
+                  ? 'text-blue-800' 
+                  : 'text-green-800'
+              }`}>
+                {success}
+              </p>
             </div>
           )}
 
@@ -1126,10 +1296,15 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose }) 
               {/* Logout */}
               <button 
                 onClick={handleLogout}
-                className="w-full flex items-center justify-center space-x-2 p-3 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                disabled={isLoading}
+                className="w-full flex items-center justify-center space-x-2 p-3 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <LogOut className="w-5 h-5" />
-                <span>Çıkış Yap</span>
+                {isLoading ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <LogOut className="w-5 h-5" />
+                )}
+                <span>{isLoading ? 'Çıkış yapılıyor...' : 'Çıkış Yap'}</span>
               </button>
             </div>
           )}

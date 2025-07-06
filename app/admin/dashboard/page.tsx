@@ -26,34 +26,32 @@ export default function AdminDashboard() {
 
   const fetchStats = async () => {
     try {
-      // Toplam ürün sayısı
-      const { count: totalProducts } = await supabase
-        .from('products')
-        .select('*', { count: 'exact', head: true });
+      // Ürün verilerini API'den al
+      const response = await fetch('/api/debug/products');
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      
+      if (result.error) {
+        throw new Error(result.error);
+      }
 
-      // Aktif ürün sayısı
-      const { count: activeProducts } = await supabase
-        .from('products')
-        .select('*', { count: 'exact', head: true })
-        .eq('in_stock', true);
-
-      // Kategori sayısı
-      const { count: categories } = await supabase
-        .from('categories')
-        .select('*', { count: 'exact', head: true });
-
-      // Son eklenen ürünler
-      const { data: recentProducts } = await supabase
-        .from('products')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(5);
+      const products = result.products || [];
+      
+      // Stats'ları hesapla
+      const totalProducts = products.length;
+      const activeProducts = products.filter((p: any) => p.in_stock).length;
+      const uniqueCategories = [...new Set(products.map((p: any) => p.category).filter((cat: any) => typeof cat === 'string'))];
+      const recentProducts = products.slice(0, 5); // İlk 5 ürün (zaten created_at'e göre sıralı)
 
       setStats({
-        totalProducts: totalProducts || 0,
-        activeProducts: activeProducts || 0,
-        categories: categories || 0,
-        recentProducts: recentProducts || []
+        totalProducts,
+        activeProducts,
+        categories: uniqueCategories.length,
+        recentProducts
       });
     } catch (error) {
       console.error('Stats yüklenirken hata:', error);

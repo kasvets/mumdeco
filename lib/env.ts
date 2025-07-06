@@ -1,9 +1,23 @@
-// Environment variable validation 
-export const getEnvVar = (key: string, required: boolean = true): string => {
+// Environment variable validation with detailed error
+const getEnvVar = (key: string, required: boolean = true): string => {
+  if (typeof window !== 'undefined') {
+    // Client-side: only check NEXT_PUBLIC_ vars
+    if (!key.startsWith('NEXT_PUBLIC_')) {
+      return '';
+    }
+  }
+  
   const value = process.env[key];
   
   if (required && !value) {
-    console.error(`Environment variable ${key} is required but not set`);
+    console.error(`
+❌ Missing Required Environment Variable: ${key}
+This variable is required for the application to function properly.
+Please add it to your .env.local file or deployment environment.
+
+Example .env.local:
+${key}=your-${key.toLowerCase()}-here
+    `);
     return '';
   }
   
@@ -12,21 +26,11 @@ export const getEnvVar = (key: string, required: boolean = true): string => {
 
 // Get environment variables with fallbacks
 const getSupabaseUrl = (): string => {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  if (!url) {
-    console.warn('NEXT_PUBLIC_SUPABASE_URL not found in environment variables');
-    return '';
-  }
-  return url;
+  return process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 };
 
 const getSupabaseAnonKey = (): string => {
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!key) {
-    console.warn('NEXT_PUBLIC_SUPABASE_ANON_KEY not found in environment variables');
-    return '';
-  }
-  return key;
+  return process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 };
 
 const getSiteUrl = (): string => {
@@ -40,12 +44,23 @@ const getSiteUrl = (): string => {
   return url;
 };
 
-// Supabase configuration - check for missing vars but don't throw
+// Client-side safe Supabase configuration
 export const supabaseConfig = {
   url: getSupabaseUrl(),
   anonKey: getSupabaseAnonKey(),
-  serviceRoleKey: getEnvVar('SUPABASE_SERVICE_KEY', false),
   siteUrl: getSiteUrl(),
+};
+
+// Server-side only Supabase configuration - only import in server components!
+export const getServerConfig = () => {
+  if (typeof window !== 'undefined') {
+    throw new Error('getServerConfig can only be used in server components');
+  }
+  
+  return {
+    ...supabaseConfig,
+    serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
+  };
 };
 
 // Check if we're in production and have real env vars
@@ -61,11 +76,11 @@ export const isProductionReady = (): boolean => {
 export const isDevelopment = process.env.NODE_ENV === 'development';
 export const isProduction = process.env.NODE_ENV === 'production';
 
-// Safe environment check
+// Safe environment check for client
 export const canUseSupabase = (): boolean => {
   try {
-    const hasUrl = Boolean(supabaseConfig.url) && supabaseConfig.url.startsWith('https://');
-    const hasKey = Boolean(supabaseConfig.anonKey) && supabaseConfig.anonKey.length > 20;
+    const hasUrl = Boolean(supabaseConfig.url);
+    const hasKey = Boolean(supabaseConfig.anonKey);
     const notPlaceholder = !supabaseConfig.url.includes('your-project') && !supabaseConfig.anonKey.includes('your-anon');
     
     return hasUrl && hasKey && notPlaceholder;
@@ -76,12 +91,28 @@ export const canUseSupabase = (): boolean => {
 
 // Check if environment variables are properly set
 export const checkEnvironmentVariables = (): { isValid: boolean; missing: string[]; hasPlaceholders: boolean } => {
-  const required = ['NEXT_PUBLIC_SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_ANON_KEY', 'SUPABASE_SERVICE_KEY'];
+  const required = ['NEXT_PUBLIC_SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_ANON_KEY'];
   const missing = required.filter(key => !process.env[key]);
   
   // Check for placeholder values
   const hasPlaceholders = supabaseConfig.url.includes('your-project') || 
                          supabaseConfig.anonKey.includes('your-anon');
+  
+  // Log detailed status in development
+  if (isDevelopment && (missing.length > 0 || hasPlaceholders)) {
+    console.error(`
+❌ Environment Configuration Error:
+
+Missing Variables:
+${missing.map(key => `- ${key}`).join('\n')}
+
+Current Configuration:
+- NEXT_PUBLIC_SUPABASE_URL: ${process.env.NEXT_PUBLIC_SUPABASE_URL ? '✅ Set' : '❌ Missing'}
+- NEXT_PUBLIC_SUPABASE_ANON_KEY: ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? '✅ Set' : '❌ Missing'}
+
+Please update your .env.local file with the correct values.
+    `);
+  }
   
   return {
     isValid: missing.length === 0 && !hasPlaceholders,

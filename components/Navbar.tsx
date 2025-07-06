@@ -1,14 +1,30 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link'
 import Image from 'next/image'
+import { useAuth } from '@/lib/auth-context'
 import UserProfileModal from './UserProfileModal'
 
 const Navbar = () => {
+  const { user, userProfile, loading } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
+
+  // Debug: Auth state'i kontrol et
+  useEffect(() => {
+    console.log('🔍 NAVBAR: Auth state:', {
+      loading,
+      hasUser: !!user,
+      userEmail: user?.email,
+      hasUserProfile: !!userProfile,
+      userProfileName: userProfile?.full_name,
+      userMetadataName: user?.user_metadata?.full_name
+    });
+  }, [loading, user, userProfile]);
+  
+
 
   // Handle scroll effect
   useEffect(() => {
@@ -106,7 +122,14 @@ const Navbar = () => {
                   className="w-5 h-5 text-black group-hover:scale-110 transition-transform">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                 </svg>
-                <span className="text-base">Hesabım</span>
+                <span className="text-base">
+                  {loading ? 'Yükleniyor...' : user ? (
+                    userProfile?.full_name || 
+                    user.user_metadata?.full_name || 
+                    user.email?.split('@')[0] || 
+                    'Hesabım'
+                  ) : 'Hesabım'}
+                </span>
               </button>
               <Link href="/cart" className="flex items-center space-x-3 py-3 px-4 bg-white border border-black rounded-full hover:border-primary/20 hover:bg-primary/5 transition-all duration-200 group">
                 <div className="relative">

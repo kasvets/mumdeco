@@ -2,8 +2,16 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react'
 import { User } from '@supabase/supabase-js'
-import { supabaseClient } from './supabase-client'
+import { supabase } from './supabase-client'
 import { supabaseConfig } from './env'
+
+// Debug import
+console.log('🔑 Auth Context: Imports loaded:', { 
+  supabase: !!supabase, 
+  supabaseConfig: !!supabaseConfig,
+  React: !!React,
+  useEffect: !!useEffect
+})
 
 interface AuthContextType {
   user: User | null
@@ -12,6 +20,7 @@ interface AuthContextType {
   signInWithGoogle: () => Promise<void>
   signOut: () => Promise<void>
   refreshProfile: () => Promise<void>
+  checkAndUpdateSession: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -24,7 +33,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Kullanıcı profil bilgilerini al
   const fetchUserProfile = async (userId: string) => {
     try {
-      const { data, error } = await supabaseClient
+      const { data, error } = await supabase
         .from('user_profiles')
         .select('*')
         .eq('id', userId)
@@ -41,7 +50,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Google ile giriş
   const signInWithGoogle = async () => {
     try {
-      const { error } = await supabaseClient.auth.signInWithOAuth({
+      const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           redirectTo: `${supabaseConfig.siteUrl}/auth/callback`,
@@ -66,13 +75,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Çıkış yap
   const signOut = async () => {
     try {
-      const { error } = await supabaseClient.auth.signOut()
-      if (error) throw error
+      console.log('🔑 AUTH CONTEXT: Starting signOut...')
+      const { error } = await supabase.auth.signOut()
       
+      if (error) {
+        console.error('🔑 AUTH CONTEXT: Supabase signOut error:', error)
+        throw error
+      }
+      
+      console.log('🔑 AUTH CONTEXT: Supabase signOut successful, clearing state...')
       setUser(null)
       setUserProfile(null)
+      console.log('🔑 AUTH CONTEXT: Auth state cleared')
+      
     } catch (error) {
-      console.error('Sign out error:', error)
+      console.error('🔑 AUTH CONTEXT: Sign out error:', error)
       throw error
     }
   }
@@ -84,33 +101,112 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  // Auth state değişikliklerini dinle
-  useEffect(() => {
-    // Mevcut session'ı kontrol et
-    supabaseClient.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null)
-      if (session?.user) {
-        fetchUserProfile(session.user.id)
+  // Session'ı manuel olarak kontrol et ve state'i güncelle
+  const checkAndUpdateSession = async () => {
+    try {
+      const { data: { session }, error } = await supabase.auth.getSession()
+      
+      if (error) {
+        console.error('Session check error:', error)
+        return
       }
-      setLoading(false)
-    })
-
-    // Auth state değişikliklerini dinle
-    const {
-      data: { subscription },
-    } = supabaseClient.auth.onAuthStateChange(async (event, session) => {
-      setUser(session?.user ?? null)
       
       if (session?.user) {
+        setUser(session.user)
         await fetchUserProfile(session.user.id)
       } else {
+        setUser(null)
         setUserProfile(null)
       }
       
       setLoading(false)
+    } catch (error) {
+      console.error('Session check error:', error)
+    }
+  }
+
+  // Auth state değişikliklerini dinle
+  useEffect(() => {
+    console.log('🔑 AUTH PROVIDER: useEffect RUNNING!')
+    
+    let mounted = true
+    
+    // Başlangıç session kontrolü
+    const initializeAuth = async () => {
+      try {
+        console.log('🔑 AUTH PROVIDER: Getting initial session...')
+        
+        // Retry logic for session initialization
+        let session = null;
+        let error = null;
+        
+        for (let i = 0; i < 3; i++) {
+          const result = await supabase.auth.getSession();
+          session = result.data.session;
+          error = result.error;
+          
+          if (session || error) break;
+          
+          // Wait a bit before retrying
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+        
+        if (!mounted) return
+        
+        console.log('🔑 AUTH PROVIDER: Initial session result:', {
+          hasSession: !!session,
+          hasUser: !!session?.user,
+          userEmail: session?.user?.email,
+          error: error
+        })
+        
+        if (session?.user) {
+          setUser(session.user)
+          await fetchUserProfile(session.user.id)
+        } else {
+          setUser(null)
+          setUserProfile(null)
+        }
+        
+        setLoading(false)
+      } catch (error) {
+        console.error('🔑 AUTH PROVIDER: Session init error:', error)
+        if (mounted) {
+          setLoading(false)
+        }
+      }
+    }
+    
+    initializeAuth()
+
+    // Auth state değişikliklerini dinle
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('🔑 AUTH PROVIDER: Auth state changed:', {
+        event,
+        user: session?.user ? 'Present' : 'Null',
+        userId: session?.user?.id
+      })
+      
+      if (!mounted) return
+      
+      setUser(session?.user ?? null)
+      
+      // Set loading to false immediately if we have a user
+      if (session?.user) {
+        setLoading(false)
+        await fetchUserProfile(session.user.id)
+      } else {
+        setUserProfile(null)
+        setLoading(false)
+      }
     })
 
-    return () => subscription.unsubscribe()
+    return () => {
+      mounted = false
+      subscription.unsubscribe()
+    }
   }, [])
 
   const value = {
@@ -120,6 +216,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signInWithGoogle,
     signOut,
     refreshProfile,
+    checkAndUpdateSession,
   }
 
   return (
