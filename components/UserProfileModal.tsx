@@ -10,15 +10,14 @@ interface UserProfileModalProps {
   onClose: () => void;
 }
 
-  const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose }) => {
-  const { user, userProfile, loading: authLoading, signInWithGoogle, signOut, refreshProfile, checkAndUpdateSession } = useAuth();
+const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose }) => {
+  const { user, userProfile, loading: authLoading, signInWithGoogle, signOut, refreshProfile, checkAndUpdateSession, updateUserProfile } = useAuth();
   const [activeTab, setActiveTab] = useState<'profile' | 'login' | 'register'>('login');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [forceRender, setForceRender] = useState(0);
-
 
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedName, setEditedName] = useState('');
@@ -34,7 +33,6 @@ interface UserProfileModalProps {
   });
   const [userAddress, setUserAddress] = useState<any>(null);
   
-  // Form state'leri
   const [loginForm, setLoginForm] = useState({
     email: '',
     password: '',
@@ -50,70 +48,90 @@ interface UserProfileModalProps {
     acceptTerms: false,
   });
 
-  // Helper function to get valid authentication token
   const getValidAuthToken = async () => {
     try {
-      // First try to get token from current Supabase session
-      const { data: { session }, error } = await supabase.auth.getSession();
+      console.log('🔑 Getting auth token...');
       
-      if (error) {
-        console.error('Session error:', error);
-        throw new Error('Oturum hatası. Lütfen tekrar giriş yapın.');
+      // Use auth context user directly instead of getSession
+      if (!user) {
+        console.log('❌ No user in auth context');
+        throw new Error('Oturum bulunamadı. Lütfen tekrar giriş yapın.');
       }
 
-      if (session?.access_token) {
-        // Verify token is still valid
-        const now = Math.floor(Date.now() / 1000);
-        const tokenExp = session.expires_at || 0;
-        
-        if (tokenExp > now) {
-          // Token is valid
-          return session.access_token;
-        } else {
-          // Token expired, try to refresh
-          const { data: refreshedSession, error: refreshError } = await supabase.auth.refreshSession();
-          
-          if (refreshError || !refreshedSession.session?.access_token) {
-            throw new Error('Oturum süresi dolmuş. Lütfen tekrar giriş yapın.');
-          }
-          
-          return refreshedSession.session.access_token;
-        }
-      }
+      console.log('🔑 User found in context:', {
+        hasUser: !!user,
+        userEmail: user?.email,
+        provider: user?.app_metadata?.provider || 'email'
+      });
 
-      // Fallback to localStorage session (for email/password login)
-      const storedSession = localStorage.getItem('auth_session');
-      if (storedSession) {
+      // Try multiple token sources
+      console.log('🔑 Trying multiple token sources...');
+      
+      // Method 1: Try localStorage first (fastest)
+      const authKeys = ['supabase.auth.token', 'sb-auth-token'];
+      for (const key of authKeys) {
         try {
-          const sessionData = JSON.parse(storedSession);
-          if (sessionData.access_token) {
-            return sessionData.access_token;
+          const stored = localStorage.getItem(key);
+          if (stored) {
+            const parsed = JSON.parse(stored);
+            const token = parsed.access_token || parsed.accessToken;
+            if (token) {
+              console.log('✅ Using localStorage token from:', key);
+              return token;
+            }
           }
-        } catch (error) {
-          console.error('Session parse error:', error);
-          // Let Supabase handle session cleanup
+        } catch (e) {
+          console.log('🔑 localStorage key failed:', key);
         }
       }
 
-      throw new Error('Oturum bulunamadı. Lütfen tekrar giriş yapın.');
+      // Method 2: Try session storage
+      try {
+        const sessionStored = sessionStorage.getItem('supabase.auth.token');
+        if (sessionStored) {
+          const parsed = JSON.parse(sessionStored);
+          if (parsed.access_token) {
+            console.log('✅ Using sessionStorage token');
+            return parsed.access_token;
+          }
+        }
+      } catch (e) {
+        console.log('🔑 sessionStorage failed');
+      }
+
+      // Method 3: Try to get from current auth state (with timeout)
+      console.log('🔑 Trying getSession with timeout...');
+      const sessionPromise = supabase.auth.getSession();
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Session timeout')), 2000)
+      );
+      
+      try {
+        const { data: { session }, error } = await Promise.race([sessionPromise, timeoutPromise]) as any;
+        
+        if (!error && session?.access_token) {
+          console.log('✅ Using session token');
+          return session.access_token;
+        }
+      } catch (sessionError) {
+        console.log('🔑 Session call failed:', sessionError);
+      }
+
+      // Method 4: Return user ID as fallback (for server-side auth)
+      console.log('🔑 Using user ID as fallback auth');
+      return user.id;
+      
     } catch (error: any) {
-      console.error('Token retrieval error:', error);
+      console.error('🔑 Token retrieval error:', error);
       throw error;
     }
   };
   
-  // Kullanıcı adres bilgilerini çek
   const fetchUserAddress = async () => {
     if (!user) return;
     
     try {
-      // Sadece Google auth için adres bilgisi çek
-      // Manuel login için skip et
-      if (!user.app_metadata?.provider || user.app_metadata.provider !== 'google') {
-        console.log('Manual login detected, skipping address fetch');
-        return;
-      }
-
+      console.log('📍 Fetching user address/profile...');
       const token = await getValidAuthToken();
 
       const response = await fetch('/api/user/profile', {
@@ -123,76 +141,89 @@ interface UserProfileModalProps {
         },
       });
 
+      console.log('📍 Profile fetch response:', {
+        status: response.status,
+        ok: response.ok
+      });
+
       if (response.status === 401) {
-        // Token expired or invalid - sadece log et, hata atma
-        console.log('Token expired or invalid, skipping address fetch');
-        return; // Hata atmak yerine sessizce çık
+        console.log('📍 Token expired or invalid, skipping address fetch');
+        return;
       }
 
       if (response.ok) {
         const data = await response.json();
-        if (data.addresses && data.addresses.length > 0) {
-          setUserAddress(data.addresses[0]); // İlk adresi al
+        console.log('📍 Profile data received:', data);
+        
+        // Check if profile has address data
+        if (data.address_line1 || data.city || data.district) {
+          console.log('📍 Setting user address from profile data');
+          setUserAddress({
+            address_line1: data.address_line1 || '',
+            city: data.city || '',
+            district: data.district || '',
+            updated_at: data.updated_at
+          });
+        } else {
+          console.log('📍 No address data found in profile');
+          setUserAddress(null);
         }
+      } else {
+        console.log('📍 Profile fetch failed:', response.status);
       }
     } catch (error: any) {
-      // Tüm hataları sessizce yakala
-      console.log('Address fetch skipped:', error.message);
-      // Hata state'ini set etme - sadece log et
+      console.log('📍 Address fetch error:', error.message);
     }
   };
 
-  // Auth state'e göre modal durumunu ayarla
   useEffect(() => {
     console.log('AUTH STATE EFFECT - User:', !!user, 'Tab:', activeTab, 'Success:', success);
     
     if (user) {
-      // Kullanıcı giriş yapmış - profil sekmesine geç
       setActiveTab('profile');
       setIsLoading(false);
+      setError(null);
       fetchUserAddress();
       
-      // Başarılı giriş sonrası success mesajını temizle
       if (success && (success.includes('Giriş başarılı!') || success.includes('Google ile giriş başarılı'))) {
-        setTimeout(() => setSuccess(null), 3000);
+        setTimeout(() => {
+          setSuccess(null);
+        }, 2000);
       }
     } else {
-      // Kullanıcı giriş yapmamış - login sekmesine geç
       setActiveTab('login');
       setIsLoading(false);
       
-      // Logout success mesajını kontrol et
       if (success && success.includes('Başarıyla çıkış yapıldı')) {
         setTimeout(() => setSuccess(null), 3000);
       }
     }
-  }, [user, userProfile, success, isLoggingOut]);
+  }, [user, userProfile]);
 
-  // Logout tamamlandığında özel handling
   useEffect(() => {
     if (isLoggingOut && !user) {
       console.log('LOGOUT COMPLETE - Setting success message');
       setSuccess('Başarıyla çıkış yapıldı.');
       setActiveTab('login');
       setIsLoggingOut(false);
+      setIsLoading(false);
       setForceRender(prev => prev + 1);
       
-      // Success mesajını 4 saniye sonra temizle
       setTimeout(() => {
         setSuccess(null);
       }, 4000);
     }
   }, [isLoggingOut, user]);
 
-  // Modal açıldığında sadece error'ı temizle (success mesajını koruyalım)
   useEffect(() => {
     if (isOpen) {
       setError(null);
-      // setSuccess(null); - Logout mesajı gösterilmesi için success'i temizlemeyelim
+      if (user) {
+        setIsLoading(false);
+      }
     }
-  }, [isOpen]);
+  }, [isOpen, user]);
 
-  // API çağrıları
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -200,13 +231,11 @@ interface UserProfileModalProps {
     setIsLoading(true);
 
     try {
-      // Mevcut sayfayı kaydet (modal kapatıldığında geri dönmek için)
       if (typeof window !== 'undefined') {
         localStorage.setItem('auth_return_url', window.location.pathname + window.location.search);
         console.log('Saved return URL for manual login:', window.location.pathname + window.location.search);
       }
 
-      // Sadece client-side Supabase auth kullan
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
         email: loginForm.email,
         password: loginForm.password,
@@ -215,7 +244,6 @@ interface UserProfileModalProps {
       if (authError) {
         console.error('Login error:', authError);
         
-        // Türkçe hata mesajları
         let errorMessage = 'Giriş sırasında bir hata oluştu.';
         
         if (authError.message.includes('Invalid login credentials')) {
@@ -233,18 +261,14 @@ interface UserProfileModalProps {
         throw new Error('Giriş yapılamadı. Lütfen tekrar deneyin.');
       }
 
-      // Başarılı giriş
       console.log('Login successful:', authData.user.email);
       setSuccess('Giriş başarılı!');
       
-      // Formu temizle
       setLoginForm({
         email: '',
         password: '',
         rememberMe: false,
       });
-
-      // Auth state değişikliği useEffect'te yakalanacak ve otomatik olarak profil sekmesine geçecek
 
     } catch (error: any) {
       setError(error.message);
@@ -259,7 +283,6 @@ interface UserProfileModalProps {
     setSuccess(null);
     setIsLoading(true);
 
-    // Form validasyonu
     if (registerForm.password !== registerForm.confirmPassword) {
       setError('Şifreler eşleşmiyor.');
       setIsLoading(false);
@@ -272,7 +295,6 @@ interface UserProfileModalProps {
       return;
     }
 
-    // Şifre uzunluğu kontrolü
     if (registerForm.password.length < 6) {
       setError('Şifre en az 6 karakter olmalıdır.');
       setIsLoading(false);
@@ -280,13 +302,11 @@ interface UserProfileModalProps {
     }
 
     try {
-      // Mevcut sayfayı kaydet (kayıt sonrası geri dönmek için)
       if (typeof window !== 'undefined') {
         localStorage.setItem('auth_return_url', window.location.pathname + window.location.search);
         console.log('Saved return URL for register:', window.location.pathname + window.location.search);
       }
       
-      // Sadece client-side Supabase auth kullan
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: registerForm.email,
         password: registerForm.password,
@@ -301,7 +321,6 @@ interface UserProfileModalProps {
       if (authError) {
         console.error('Register error:', authError);
         
-        // Türkçe hata mesajları
         let errorMessage = 'Kayıt sırasında bir hata oluştu.';
         
         if (authError.message.includes('already registered') || authError.message.includes('User already registered')) {
@@ -315,11 +334,9 @@ interface UserProfileModalProps {
         throw new Error(errorMessage);
       }
 
-      // Başarılı kayıt
       console.log('Registration successful:', authData.user?.email);
       setSuccess('Kayıt başarılı! E-posta adresinize doğrulama linki gönderildi.');
       
-      // Formu temizle
       setRegisterForm({
         fullName: '',
         email: '',
@@ -329,7 +346,6 @@ interface UserProfileModalProps {
         acceptTerms: false,
       });
 
-      // Giriş sekmesine geç
       setTimeout(() => {
         setActiveTab('login');
       }, 2000);
@@ -341,29 +357,25 @@ interface UserProfileModalProps {
     }
   };
 
-  // Google ile giriş
   const handleGoogleSignIn = async () => {
     setIsLoading(true);
     setError(null);
+    setSuccess(null);
     
     try {
-      // Mevcut sayfayı kaydet (redirect için)
       if (typeof window !== 'undefined') {
         localStorage.setItem('auth_return_url', window.location.pathname + window.location.search);
         console.log('Saved return URL:', window.location.pathname + window.location.search);
       }
       
       await signInWithGoogle();
-      setSuccess('Google ile giriş başarılı!');
     } catch (error: any) {
       setError(error.message || 'Google ile giriş yapılamadı.');
       setIsLoading(false);
     }
-    // Loading'i burada bitirme - auth tamamlandığında bitecek
   };
 
   const handleLogout = async () => {
-    // Prevent multiple clicks
     if (isLoading) {
       console.log('🚪 LOGOUT: Already in progress, ignoring...');
       return;
@@ -374,69 +386,54 @@ interface UserProfileModalProps {
     setIsLoggingOut(true);
     setError(null);
     
-    // Set a timeout to force logout completion
     const forceLogoutTimeout = setTimeout(() => {
       console.log('🚪 LOGOUT: Force completing logout due to timeout');
       onClose();
       console.log('🚪 LOGOUT: Redirecting to home due to timeout...');
       window.location.href = '/';
-    }, 3000); // 3 seconds timeout
+    }, 3000);
     
     try {
       console.log('🚪 LOGOUT: Starting logout process...');
       console.log('🚪 LOGOUT: Current user before logout:', user ? user.email : 'No user');
       
-             // NUCLEAR OPTION: Complete session destruction
-       console.log('🚪 LOGOUT: Starting nuclear session cleanup...');
-       
-       // 1. Close modal immediately
-       onClose();
-       
-       // 2. Clear ALL storage types
-       if (typeof window !== 'undefined') {
-         // Clear localStorage completely
-         localStorage.clear();
-         
-         // Clear sessionStorage
-         sessionStorage.clear();
-         
-         // Clear all cookies
-         document.cookie.split(";").forEach((c) => {
-           document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
-         });
-         
-         console.log('🚪 LOGOUT: All storage cleared');
-       }
-       
-       // 3. Try Supabase signOut (but don't wait for it)
-       signOut().catch(error => {
-         console.log('🚪 LOGOUT: Supabase signOut error (ignoring):', error);
-       });
-       
-       // 4. Force redirect to home page instead of reload
-       console.log('🚪 LOGOUT: Redirecting to home page...');
-       window.location.href = '/';
-       
-       // Clear timeout since we completed successfully
-       clearTimeout(forceLogoutTimeout);
-       
-       // No need for other logic, we're reloading the page
+      console.log('🚪 LOGOUT: Starting nuclear session cleanup...');
+      
+      onClose();
+      
+      if (typeof window !== 'undefined') {
+        localStorage.clear();
+        
+        sessionStorage.clear();
+        
+        document.cookie.split(";").forEach((c) => {
+          document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+        });
+        
+        console.log('🚪 LOGOUT: All storage cleared');
+      }
+      
+      signOut().catch(error => {
+        console.log('🚪 LOGOUT: Supabase signOut error (ignoring):', error);
+      });
+      
+      console.log('🚪 LOGOUT: Redirecting to home page...');
+      window.location.href = '/';
+      
+      clearTimeout(forceLogoutTimeout);
       
     } catch (error: any) {
       console.error('🚪 LOGOUT: Logout error:', error);
       clearTimeout(forceLogoutTimeout);
       
-      // Close modal and redirect on error too
       onClose();
       console.log('🚪 LOGOUT: Redirecting to home after error...');
       window.location.href = '/';
     } finally {
-      // Page will reload, no need to set loading state
       console.log('🚪 LOGOUT: Logout process completed');
     }
   };
 
-  // İsim düzenleme işlemini başlat
   const handleEditName = () => {
     setIsEditingName(true);
     setEditedName(userProfile?.full_name || user?.user_metadata?.full_name || '');
@@ -444,19 +441,31 @@ interface UserProfileModalProps {
     setSuccess(null);
   };
 
-  // İsim güncelleme işlemini kaydet
   const handleSaveName = async () => {
     if (!editedName.trim() || editedName.trim().length < 2) {
       setError('Ad soyad en az 2 karakter olmalıdır.');
       return;
     }
 
+    console.log('💾 Starting name save process...');
     setIsLoading(true);
     setError(null);
     
     try {
+      console.log('💾 Getting auth token for name update...');
       const token = await getValidAuthToken();
+      console.log('💾 Token obtained:', token ? 'YES' : 'NO');
 
+      // Test API connection first
+      console.log('🧪 Testing API connection...');
+      try {
+        const testResponse = await fetch('/api/test', { method: 'GET' });
+        console.log('🧪 Test API response:', testResponse.status);
+      } catch (testError) {
+        console.log('🧪 Test API failed:', testError);
+      }
+
+      console.log('💾 Making main API request...');
       const response = await fetch('/api/user/profile', {
         method: 'PUT',
         headers: {
@@ -468,30 +477,61 @@ interface UserProfileModalProps {
         }),
       });
 
+      console.log('💾 API response received:', {
+        status: response.status,
+        ok: response.ok,
+        statusText: response.statusText,
+        headers: Object.fromEntries(response.headers.entries())
+      });
+
       if (response.status === 401) {
         throw new Error('Oturum süresi dolmuş. Lütfen tekrar giriş yapın.');
       }
 
-      const data = await response.json();
+      let data;
+      try {
+        const responseText = await response.text();
+        console.log('💾 Raw response text:', responseText);
+        
+        if (responseText) {
+          data = JSON.parse(responseText);
+        } else {
+          data = {};
+        }
+      } catch (parseError) {
+        console.error('💾 JSON parse error:', parseError);
+        throw new Error('Sunucu yanıtı geçersiz. Lütfen tekrar deneyin.');
+      }
+      
+      console.log('💾 API response data:', data);
 
       if (!response.ok) {
-        throw new Error(data.error || 'Profil güncellenemedi');
+        throw new Error(data.error || `HTTP ${response.status}: ${response.statusText}`);
       }
 
+      console.log('✅ Name update successful');
       setSuccess('İsminiz başarıyla güncellendi.');
       setIsEditingName(false);
       
-      // Profil bilgilerini yenile
+      // Update local user profile state immediately
+      console.log('🔄 Updating local userProfile state...');
+      updateUserProfile({
+        full_name: editedName.trim(),
+        updated_at: new Date().toISOString()
+      });
+      
+      console.log('🔄 Refreshing profile...');
       await refreshProfile();
       
     } catch (error: any) {
-      setError(error.message);
+      console.error('❌ Name save error:', error);
+      setError(error.message || 'Beklenmeyen bir hata oluştu.');
     } finally {
+      console.log('💾 Name save process completed');
       setIsLoading(false);
     }
   };
 
-  // İsim düzenlemeyi iptal et
   const handleCancelEditName = () => {
     setIsEditingName(false);
     setEditedName('');
@@ -499,7 +539,6 @@ interface UserProfileModalProps {
     setSuccess(null);
   };
 
-  // E-posta düzenleme işlemini başlat
   const handleEditEmail = () => {
     setIsEditingEmail(true);
     setEditedEmail(user?.email || '');
@@ -507,7 +546,6 @@ interface UserProfileModalProps {
     setSuccess(null);
   };
 
-  // E-posta güncelleme işlemini kaydet
   const handleSaveEmail = async () => {
     if (!editedEmail.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(editedEmail)) {
       setError('Geçerli bir e-posta adresi girin.');
@@ -553,7 +591,6 @@ interface UserProfileModalProps {
     }
   };
 
-  // E-posta düzenlemeyi iptal et
   const handleCancelEditEmail = () => {
     setIsEditingEmail(false);
     setEditedEmail('');
@@ -561,7 +598,6 @@ interface UserProfileModalProps {
     setSuccess(null);
   };
 
-  // Telefon düzenleme işlemini başlat
   const handleEditPhone = () => {
     setIsEditingPhone(true);
     setEditedPhone(userProfile?.phone || '');
@@ -569,7 +605,6 @@ interface UserProfileModalProps {
     setSuccess(null);
   };
 
-  // Telefon güncelleme işlemini kaydet
   const handleSavePhone = async () => {
     if (editedPhone.trim() && editedPhone.trim().length < 10) {
       setError('Geçerli bir telefon numarası girin.');
@@ -606,6 +641,13 @@ interface UserProfileModalProps {
       setSuccess('Telefon numaranız başarıyla güncellendi.');
       setIsEditingPhone(false);
       
+      // Update local user profile state immediately
+      console.log('🔄 Updating local userProfile state for phone...');
+      updateUserProfile({
+        phone: editedPhone.trim(),
+        updated_at: new Date().toISOString()
+      });
+      
       await refreshProfile();
       
     } catch (error: any) {
@@ -615,7 +657,6 @@ interface UserProfileModalProps {
     }
   };
 
-  // Telefon düzenlemeyi iptal et
   const handleCancelEditPhone = () => {
     setIsEditingPhone(false);
     setEditedPhone('');
@@ -623,7 +664,6 @@ interface UserProfileModalProps {
     setSuccess(null);
   };
 
-  // Adres düzenleme işlemini başlat
   const handleEditAddress = () => {
     setIsEditingAddress(true);
     setEditedAddress({
@@ -635,7 +675,6 @@ interface UserProfileModalProps {
     setSuccess(null);
   };
 
-  // Adres güncelleme işlemini kaydet
   const handleSaveAddress = async () => {
     if (!editedAddress.address_line1.trim() || editedAddress.address_line1.trim().length < 10) {
       setError('Adres en az 10 karakter olmalıdır.');
@@ -658,7 +697,7 @@ interface UserProfileModalProps {
     try {
       const token = await getValidAuthToken();
 
-      const response = await fetch('/api/user/address', {
+      const response = await fetch('/api/user/profile', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -684,7 +723,16 @@ interface UserProfileModalProps {
       setSuccess('Adresiniz başarıyla güncellendi.');
       setIsEditingAddress(false);
       
-      // Adres bilgisini yeniden çek
+      // Update local address state immediately
+      console.log('🔄 Updating local userAddress state...');
+      setUserAddress({
+        ...userAddress,
+        address_line1: editedAddress.address_line1.trim(),
+        city: editedAddress.city.trim(),
+        district: editedAddress.district.trim(),
+        updated_at: new Date().toISOString()
+      });
+      
       await fetchUserAddress();
       
     } catch (error: any) {
@@ -694,7 +742,6 @@ interface UserProfileModalProps {
     }
   };
 
-  // Adres düzenlemeyi iptal et
   const handleCancelEditAddress = () => {
     setIsEditingAddress(false);
     setEditedAddress({
@@ -706,7 +753,6 @@ interface UserProfileModalProps {
     setSuccess(null);
   };
 
-  // Geçici kullanıcı verisi (kullanıcı giriş yapmışsa gerçek veri kullanılacak)
   const mockUser = {
     name: 'Ahmet Yılmaz',
     email: 'ahmet@example.com',
@@ -721,14 +767,12 @@ interface UserProfileModalProps {
     }
   };
 
-  // Modal kapatırken mesajları temizle
   const handleClose = () => {
     setError(null);
     setSuccess(null);
     setIsLoading(false);
     setIsLoggingOut(false);
     
-    // Editing state'lerini temizle
     setIsEditingName(false);
     setIsEditingEmail(false);
     setIsEditingPhone(false);
@@ -748,7 +792,6 @@ interface UserProfileModalProps {
         key={`modal-${forceRender}-${user?.id || 'nouser'}-${activeTab}`}
         className="bg-white rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto shadow-2xl"
       >
-        {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-100">
           <h2 className="text-2xl font-serif font-medium">
             {user ? 'Hesabım' : 'Giriş Yap'}
@@ -761,9 +804,7 @@ interface UserProfileModalProps {
           </button>
         </div>
 
-        {/* Content */}
         <div className="p-6">
-          {/* Error/Success Messages */}
           {error && (
             <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
               <p className="text-red-800 text-sm">{error}</p>
@@ -786,7 +827,6 @@ interface UserProfileModalProps {
           )}
 
           {!user ? (
-            /* Login/Register Tabs */
             <div>
               <div className="flex mb-6 bg-gray-50 rounded-lg p-1">
                 <button
@@ -812,9 +852,7 @@ interface UserProfileModalProps {
               </div>
 
               {activeTab === 'login' ? (
-                /* Login Form */
                 <form onSubmit={handleLogin} className="space-y-4">
-                  {/* Google Login Button */}
                   <button 
                     type="button" 
                     onClick={handleGoogleSignIn}
@@ -832,7 +870,6 @@ interface UserProfileModalProps {
                     </span>
                   </button>
                   
-                  {/* Divider */}
                   <div className="relative">
                     <div className="absolute inset-0 flex items-center">
                       <div className="w-full border-t border-gray-300"></div>
@@ -898,9 +935,7 @@ interface UserProfileModalProps {
                   </button>
                 </form>
               ) : (
-                /* Register Form */
                 <form onSubmit={handleRegister} className="space-y-4">
-                  {/* Google Register Button */}
                   <button 
                     type="button" 
                     onClick={handleGoogleSignIn}
@@ -918,7 +953,6 @@ interface UserProfileModalProps {
                     </span>
                   </button>
                   
-                  {/* Divider */}
                   <div className="relative">
                     <div className="absolute inset-0 flex items-center">
                       <div className="w-full border-t border-gray-300"></div>
@@ -1022,9 +1056,7 @@ interface UserProfileModalProps {
               )}
             </div>
           ) : (
-            /* User Profile */
             <div>
-              {/* User Info */}
               <div className="flex items-start space-x-4 mb-6 p-4 bg-gray-50 rounded-lg">
                 <div className="w-16 h-16 bg-black rounded-full flex items-center justify-center overflow-hidden flex-shrink-0">
                   {(userProfile?.avatar_url || user?.user_metadata?.avatar_url) ? (
@@ -1033,7 +1065,6 @@ interface UserProfileModalProps {
                       alt="Profil resmi"
                       className="w-full h-full object-cover"
                       onError={(e) => {
-                        // Resim yüklenemezse fallback'e geç
                         e.currentTarget.style.display = 'none';
                         const parent = e.currentTarget.parentElement;
                         if (parent) {
@@ -1090,7 +1121,6 @@ interface UserProfileModalProps {
                 </div>
               </div>
 
-              {/* Quick Actions */}
               <div className="grid grid-cols-2 gap-3 mb-6">
                 <button className="flex items-center space-x-2 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
                   <Package className="w-5 h-5 text-gray-600" />
@@ -1110,9 +1140,7 @@ interface UserProfileModalProps {
                 </button>
               </div>
 
-              {/* User Details */}
               <div className="space-y-4 mb-6">
-                {/* E-posta */}
                 <div className="p-3 border border-gray-200 rounded-lg">
                   <div className="flex items-center space-x-3">
                     <Mail className="w-5 h-5 text-gray-500" />
@@ -1162,7 +1190,6 @@ interface UserProfileModalProps {
                   </div>
                 </div>
 
-                {/* Telefon */}
                 <div className="p-3 border border-gray-200 rounded-lg">
                   <div className="flex items-center space-x-3">
                     <Phone className="w-5 h-5 text-gray-500" />
@@ -1212,7 +1239,6 @@ interface UserProfileModalProps {
                   </div>
                 </div>
 
-                {/* Adres */}
                 <div className="p-3 border border-gray-200 rounded-lg">
                   <div className="flex items-center space-x-3">
                     <MapPin className="w-5 h-5 text-gray-500" />
@@ -1293,7 +1319,6 @@ interface UserProfileModalProps {
                 </div>
               </div>
 
-              {/* Logout */}
               <button 
                 onClick={handleLogout}
                 disabled={isLoading}

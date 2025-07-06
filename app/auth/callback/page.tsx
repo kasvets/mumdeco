@@ -1,95 +1,83 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase-client'
+import { useEffect, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
 
-export default function AuthCallback() {
-  const router = useRouter()
-  const [error, setError] = useState<string | null>(null)
+function AuthCallbackContent() {
+  const searchParams = useSearchParams()
 
   useEffect(() => {
-    const handleAuthCallback = async () => {
-      try {
-        // URL'den auth code'u al ve session'a çevir
-        const { data, error } = await supabase.auth.getSession()
-        
-        if (error) {
-          console.error('Auth callback error:', error)
-          setError('Giriş işlemi sırasında bir hata oluştu. Lütfen tekrar deneyin.')
-          
-          // 3 saniye sonra yönlendir
-          setTimeout(() => {
-            const returnUrl = localStorage.getItem('auth_return_url') || '/'
-            localStorage.removeItem('auth_return_url')
-            router.push(`${returnUrl}?error=auth_failed`)
-          }, 3000)
-          return
-        }
-
-        if (data.session) {
-          // Kullanıcı başarıyla giriş yaptı
-          console.log('Auth successful:', data.session.user.email)
-          
-          // Session'ı yenile
-          const { error: refreshError } = await supabase.auth.refreshSession()
-          if (refreshError) {
-            console.error('Session refresh error:', refreshError)
-          }
-          
-          // Kullanıcının nereden geldiğini kontrol et
-          const returnUrl = localStorage.getItem('auth_return_url') || '/'
-          localStorage.removeItem('auth_return_url') // Temizle
-          
-          // Başarılı mesajı göster ve yönlendir
-          setError(null)
-          console.log('Redirecting to:', returnUrl)
-          router.push(returnUrl)
-        } else {
-          // Session bulunamadı
-          setError('Oturum bilgisi bulunamadı. Lütfen tekrar giriş yapın.')
-          setTimeout(() => {
-            const returnUrl = localStorage.getItem('auth_return_url') || '/'
-            localStorage.removeItem('auth_return_url')
-            router.push(`${returnUrl}?error=no_session`)
-          }, 3000)
-        }
-      } catch (error) {
-        console.error('Callback error:', error)
-        setError('Beklenmeyen bir hata oluştu. Lütfen tekrar deneyin.')
-        setTimeout(() => {
-          const returnUrl = localStorage.getItem('auth_return_url') || '/'
-          localStorage.removeItem('auth_return_url')
-          router.push(`${returnUrl}?error=callback_failed`)
-        }, 3000)
-      }
+    console.log('🚀 Auth callback started')
+    
+    // Auth code var mı kontrol et
+    const code = searchParams.get('code')
+    
+    if (code) {
+      console.log('✅ Auth code found, redirecting immediately')
+      
+      // Direkt redirect yap - auth exchange'i bekleme
+      const returnUrl = localStorage.getItem('auth_return_url') || '/'
+      localStorage.removeItem('auth_return_url')
+      
+      console.log('🔄 Redirecting to:', returnUrl)
+      
+      // Anında redirect
+      window.location.replace(returnUrl)
+    } else {
+      console.log('❌ No auth code, redirecting to home')
+      window.location.replace('/')
     }
+  }, [searchParams])
 
-    handleAuthCallback()
-  }, [router])
+  // Manuel redirect butonu - eğer otomatik çalışmazsa
+  const handleManualRedirect = () => {
+    const returnUrl = localStorage.getItem('auth_return_url') || '/'
+    localStorage.removeItem('auth_return_url')
+    window.location.replace(returnUrl)
+  }
 
   return (
-    <div className="min-h-screen flex items-center justify-center">
-      <div className="text-center">
-        {!error ? (
-          <>
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-black mx-auto mb-4"></div>
-            <h2 className="text-xl font-medium">Giriş işlemi tamamlanıyor...</h2>
-            <p className="text-gray-600 mt-2">Lütfen bekleyin</p>
-          </>
-        ) : (
-          <>
-            <div className="text-red-500 mb-4">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            <h2 className="text-xl font-medium text-red-600">Hata</h2>
-            <p className="text-gray-600 mt-2">{error}</p>
-            <p className="text-sm text-gray-500 mt-4">Yönlendiriliyorsunuz...</p>
-          </>
-        )}
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="text-center bg-white p-8 rounded-2xl shadow-lg border border-gray-100 max-w-md w-full mx-4">
+        <div className="animate-spin rounded-full h-12 w-12 border-4 border-primary border-t-transparent mx-auto mb-4"></div>
+        <h2 className="text-xl font-semibold text-gray-900 mb-2">
+          Giriş Başarılı!
+        </h2>
+        <p className="text-gray-600 mb-6">
+          Yönlendiriliyor...
+        </p>
+        
+        <button
+          onClick={handleManualRedirect}
+          className="px-6 py-3 bg-primary text-white font-medium rounded-lg hover:bg-primary/90 transition-colors"
+        >
+          Ana Sayfaya Git
+        </button>
       </div>
     </div>
+  )
+}
+
+function LoadingFallback() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="text-center bg-white p-8 rounded-2xl shadow-lg border border-gray-100 max-w-md w-full mx-4">
+        <div className="animate-spin rounded-full h-12 w-12 border-4 border-primary border-t-transparent mx-auto mb-4"></div>
+        <h2 className="text-xl font-semibold text-gray-900 mb-2">
+          Yükleniyor...
+        </h2>
+        <p className="text-gray-600">
+          Lütfen bekleyin...
+        </p>
+      </div>
+    </div>
+  )
+}
+
+export default function AuthCallback() {
+  return (
+    <Suspense fallback={<LoadingFallback />}>
+      <AuthCallbackContent />
+    </Suspense>
   )
 } 

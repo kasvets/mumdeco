@@ -21,6 +21,7 @@ interface AuthContextType {
   signOut: () => Promise<void>
   refreshProfile: () => Promise<void>
   checkAndUpdateSession: () => Promise<void>
+  updateUserProfile: (updates: any) => void
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -33,17 +34,47 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Kullanıcı profil bilgilerini al
   const fetchUserProfile = async (userId: string) => {
     try {
-      const { data, error } = await supabase
-        .from('user_profiles')
-        .select('*')
-        .eq('id', userId)
-        .single()
-
-      if (!error && data) {
+      console.log('📍 AUTH CONTEXT: Fetching profile for user:', userId)
+      
+      // Try to get session with timeout, fallback to user ID
+      let authToken = userId; // Default fallback to user ID
+      
+      try {
+        console.log('📍 AUTH CONTEXT: Trying to get session with timeout...')
+        const sessionPromise = supabase.auth.getSession();
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Session timeout')), 1000)
+        );
+        
+        const { data: { session } } = await Promise.race([sessionPromise, timeoutPromise]) as any;
+        
+        if (session?.access_token) {
+          console.log('📍 AUTH CONTEXT: Got session token, using it')
+          authToken = session.access_token;
+        } else {
+          console.log('📍 AUTH CONTEXT: No session token, using user ID')
+        }
+      } catch (sessionError: any) {
+        console.log('📍 AUTH CONTEXT: Session failed/timeout, using user ID:', sessionError.message)
+      }
+      
+      console.log('📍 AUTH CONTEXT: Making API call with token/ID...')
+      const response = await fetch('/api/user/profile', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+        },
+      })
+      
+      if (response.ok) {
+        const data = await response.json()
+        console.log('📍 AUTH CONTEXT: Profile fetched successfully via API:', data.full_name)
         setUserProfile(data)
+      } else {
+        console.error('📍 AUTH CONTEXT: API profile fetch failed:', response.status, response.statusText)
       }
     } catch (error) {
-      console.error('Profile fetch error:', error)
+      console.error('📍 AUTH CONTEXT: Profile fetch error:', error)
     }
   }
 
@@ -96,8 +127,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Profil bilgilerini yenile
   const refreshProfile = async () => {
+    console.log('🔄 AUTH CONTEXT: refreshProfile called, user:', user ? 'EXISTS' : 'NULL')
     if (user) {
+      console.log('🔄 AUTH CONTEXT: Calling fetchUserProfile for user:', user.id)
       await fetchUserProfile(user.id)
+    } else {
+      console.log('❌ AUTH CONTEXT: Cannot refresh profile, user is null')
+    }
+  }
+
+  // Local profil state'ini güncelle
+  const updateUserProfile = (updates: any) => {
+    console.log('🔄 AUTH CONTEXT: updateUserProfile called with:', updates)
+    console.log('🔄 AUTH CONTEXT: Current userProfile:', userProfile)
+    
+    if (userProfile) {
+      const newProfile = {
+        ...userProfile,
+        ...updates
+      }
+      console.log('🔄 AUTH CONTEXT: Setting new profile:', newProfile)
+      setUserProfile(newProfile)
+    } else {
+      console.log('❌ AUTH CONTEXT: userProfile is null, cannot update')
     }
   }
 
@@ -217,6 +269,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signOut,
     refreshProfile,
     checkAndUpdateSession,
+    updateUserProfile,
   }
 
   return (
