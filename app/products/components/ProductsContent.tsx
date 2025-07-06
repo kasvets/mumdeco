@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import ProductGrid from './ProductGrid';
 import FilterSidebar from './FilterSidebar';
-import { fetchProducts } from '@/lib/supabase';
+import { fetchProducts } from '../data/products';
 import { Product } from '@/lib/supabase';
 
 interface ProductFilters {
@@ -33,12 +33,17 @@ export default function ProductsContent() {
   useEffect(() => {
     const loadProducts = async () => {
       try {
+        console.log('🔄 Loading products...');
         setLoading(true);
         const data = await fetchProducts();
+        console.log('✅ Products loaded:', data.length, 'products');
+        console.log('📦 Sample products:', data.slice(0, 2));
         setProducts(data);
       } catch (error) {
-        console.error('Ürünler yüklenirken hata:', error);
+        console.error('❌ Error loading products:', error);
+        setProducts([]); // Set empty array on error
       } finally {
+        console.log('✨ Loading finished');
         setLoading(false);
       }
     };
@@ -107,6 +112,17 @@ export default function ProductsContent() {
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-amber-600 mx-auto mb-4"></div>
           <p className="text-gray-600">Ürünler yükleniyor...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (products.length === 0) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="text-center">
+          <p className="text-gray-600 mb-4">Henüz ürün bulunmamaktadır.</p>
+          <p className="text-sm text-gray-500">Lütfen daha sonra tekrar deneyiniz.</p>
         </div>
       </div>
     );

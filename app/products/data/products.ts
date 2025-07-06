@@ -1,23 +1,25 @@
 import { supabase, Product } from '@/lib/supabase';
 
-// Supabase'den ürünleri getir
+// Supabase'den ürünleri getir (tüm ürünler)
 export const fetchProducts = async (): Promise<Product[]> => {
   try {
+    console.log('🔄 Fetching products...');
+    
     const { data, error } = await supabase
       .from('products')
       .select('*')
-      .eq('in_stock', true)
       .order('created_at', { ascending: false });
 
     if (error) {
-      console.error('Ürünler yüklenirken hata:', error);
-      return [];
+      console.error('❌ Error fetching products:', error);
+      throw new Error(`Database error: ${error.message}`);
     }
 
+    console.log('✅ Successfully fetched', data?.length || 0, 'products');
     return data || [];
   } catch (error) {
-    console.error('Ürünler yüklenirken hata:', error);
-    return [];
+    console.error('❌ Exception in fetchProducts:', error);
+    throw error;
   }
 };
 

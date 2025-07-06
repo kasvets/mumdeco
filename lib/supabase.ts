@@ -130,19 +130,21 @@ export type Category = Database['public']['Tables']['categories']['Row']
 // Fetch functions with error handling
 export async function fetchProducts(): Promise<Product[]> {
   try {
+    console.log('🔄 lib/supabase: fetchProducts started');
     const { data, error } = await supabase
       .from('products')
       .select('*')
       .order('created_at', { ascending: false })
 
     if (error) {
-      console.error('Error fetching products:', error)
+      console.error('❌ lib/supabase: Error fetching products:', error)
       throw error // Re-throw instead of returning empty array
     }
 
+    console.log('✅ lib/supabase: fetchProducts success:', data?.length || 0, 'products');
     return data || []
   } catch (error) {
-    console.error('fetchProducts error:', error)
+    console.error('❌ lib/supabase: fetchProducts error:', error)
     throw error // Re-throw instead of returning empty array
   }
 }

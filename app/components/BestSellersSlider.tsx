@@ -1,6 +1,7 @@
 'use client';
 
 import Image from "next/image";
+import Link from "next/link";
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Navigation } from 'swiper/modules';
 import { useState } from 'react';
@@ -40,66 +41,81 @@ export default function BestSellersSlider({ products }: BestSellersSliderProps) 
         {productGroups.map((group, groupIndex) => (
           <SwiperSlide key={groupIndex}>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-              {group.map((product) => {
-                // İndirim yüzdesini hesapla
-                const discountPercentage = product.old_price 
-                  ? Math.round(((product.old_price - product.price) / product.old_price) * 100)
-                  : 0;
+              {group.map((product) => (
+                <Link
+                  key={product.id}
+                  href={`/products/${product.id}`}
+                  className="group block bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-gray-100 hover:border-gray-200"
+                >
+                  {/* Product Image */}
+                  <div className="relative aspect-[4/5] overflow-hidden bg-gray-50">
+                    <Image
+                      src={product.image_url || '/Model1/Adriatic/m1a1.webp'}
+                      alt={product.name}
+                      fill
+                      className="object-cover transition-transform duration-700 group-hover:scale-110"
+                    />
+                    {/* Modern overlay efekti */}
+                    <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 transition-all duration-300" />
+                    
+                    {/* Sadece rating varsa göster */}
+                    {product.rating && (
+                      <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm text-gray-800 text-sm px-3 py-1.5 rounded-full shadow-sm">
+                        ★ {product.rating.toFixed(1)}
+                      </div>
+                    )}
+                  </div>
 
-                return (
-                  <div key={product.id} className="group relative bg-white rounded-xl overflow-hidden flex flex-col h-full border border-gray-100">
-                    {/* Product Image */}
-                    <div className="relative aspect-[4/5] overflow-hidden">
-                      <Image
-                        src={product.image_url || '/Model1/Adriatic/m1a1.webp'}
-                        alt={product.name}
-                        fill
-                        className="object-cover transition-transform duration-500 group-hover:scale-105"
-                      />
-                      {discountPercentage > 0 && (
-                        <div className="absolute top-4 left-4 bg-red-500 text-white text-sm px-3 py-1 rounded-full">
-                          İNDİRİM -{discountPercentage}%
-                        </div>
-                      )}
-                      {product.is_new && (
-                        <div className="absolute top-4 right-4 bg-green-600 text-white text-sm px-3 py-1 rounded-full">
-                          YENİ
-                        </div>
-                      )}
-                    </div>
+                  {/* Product Info */}
+                  <div className="p-6">
+                    {/* Title */}
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2 line-clamp-2 group-hover:text-gray-700 transition-colors">
+                      {product.name}
+                    </h3>
+                    
+                    {/* Description */}
+                    <p className="text-sm text-gray-600 mb-4 line-clamp-2 leading-relaxed">
+                      {product.description || 'Bu ürün için açıklama bulunmamaktadır.'}
+                    </p>
 
-                    {/* Product Info */}
-                    <div className="p-6 flex flex-col flex-grow">
-                      {/* Price */}
-                      <div className="flex items-baseline gap-2 mb-3">
-                        <span className="text-xl font-medium">₺{product.price.toFixed(2)}</span>
+                    {/* Price */}
+                    <div className="mb-4">
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-2xl font-bold text-gray-900">₺{product.price.toFixed(2)}</span>
                         {product.old_price && (
                           <span className="text-sm text-gray-400 line-through">₺{product.old_price.toFixed(2)}</span>
                         )}
                       </div>
+                    </div>
 
-                      {/* Title with fixed height */}
-                      <div className="min-h-[3.5rem] mb-2">
-                        <h3 className="text-lg font-medium line-clamp-2">{product.name}</h3>
-                      </div>
-                      
-                      {/* Description */}
-                      <div className="flex-grow">
-                        <p className="text-sm text-gray-600 leading-relaxed line-clamp-3">
-                          {product.description || 'Bu ürün için açıklama bulunmamaktadır.'}
-                        </p>
-                      </div>
-
-                      {/* Buy Button - Now consistently at bottom */}
-                      <div className="pt-6">
-                        <button className="w-full text-center py-3 border border-gray-300 rounded-full text-gray-700 hover:bg-gray-50 transition-colors duration-300">
-                          Satın Al
-                        </button>
-                      </div>
+                    {/* Action Buttons */}
+                    <div className="flex gap-2">
+                      <button 
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          // Sepete ekle fonksiyonu burada çağrılacak
+                          console.log('Sepete eklendi:', product.name);
+                        }}
+                        className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-800 py-2.5 px-4 rounded-full text-sm font-medium transition-colors duration-200"
+                      >
+                        Sepete Ekle
+                      </button>
+                      <button 
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          // Satın al fonksiyonu burada çağrılacak
+                          console.log('Satın alındı:', product.name);
+                        }}
+                        className="flex-1 bg-gray-800 hover:bg-gray-900 text-white py-2.5 px-4 rounded-full text-sm font-medium transition-colors duration-200"
+                      >
+                        Satın Al
+                      </button>
                     </div>
                   </div>
-                );
-              })}
+                </Link>
+              ))}
             </div>
           </SwiperSlide>
         ))}
@@ -109,7 +125,7 @@ export default function BestSellersSlider({ products }: BestSellersSliderProps) 
       <div className="flex items-center justify-center gap-8 mt-12">
         <button 
           onClick={() => swiper?.slidePrev()}
-          className="w-10 h-10 flex items-center justify-center text-gray-400 hover:text-gray-800 transition-colors duration-300"
+          className="w-12 h-12 flex items-center justify-center text-gray-400 hover:text-gray-800 transition-colors duration-300 rounded-full hover:bg-gray-100"
         >
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
             <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
@@ -133,7 +149,7 @@ export default function BestSellersSlider({ products }: BestSellersSliderProps) 
 
         <button 
           onClick={() => swiper?.slideNext()}
-          className="w-10 h-10 flex items-center justify-center text-gray-400 hover:text-gray-800 transition-colors duration-300"
+          className="w-12 h-12 flex items-center justify-center text-gray-400 hover:text-gray-800 transition-colors duration-300 rounded-full hover:bg-gray-100"
         >
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
             <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />

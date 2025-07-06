@@ -3,10 +3,12 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link'
 import Image from 'next/image'
+import UserProfileModal from './UserProfileModal'
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+  const [isUserModalOpen, setIsUserModalOpen] = useState(false);
 
   // Handle scroll effect
   useEffect(() => {
@@ -96,13 +98,16 @@ const Navbar = () => {
 
             {/* Account & Cart */}
             <div className="flex items-center space-x-6">
-              <Link href="/account" className="flex items-center space-x-3 py-3 px-4 bg-white border border-black rounded-full hover:border-primary/20 hover:bg-primary/5 transition-all duration-200 group">
+              <button 
+                onClick={() => setIsUserModalOpen(true)}
+                className="flex items-center space-x-3 py-3 px-4 bg-white border border-black rounded-full hover:border-primary/20 hover:bg-primary/5 transition-all duration-200 group"
+              >
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" 
                   className="w-5 h-5 text-black group-hover:scale-110 transition-transform">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                 </svg>
                 <span className="text-base">Hesabım</span>
-              </Link>
+              </button>
               <Link href="/cart" className="flex items-center space-x-3 py-3 px-4 bg-white border border-black rounded-full hover:border-primary/20 hover:bg-primary/5 transition-all duration-200 group">
                 <div className="relative">
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" 
@@ -193,6 +198,12 @@ const Navbar = () => {
           </div>
         </div>
       </nav>
+      
+      {/* User Profile Modal */}
+      <UserProfileModal 
+        isOpen={isUserModalOpen}
+        onClose={() => setIsUserModalOpen(false)}
+      />
     </div>
   )
 }

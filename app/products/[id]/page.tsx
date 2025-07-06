@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { ChevronLeftIcon, ChevronRightIcon, StarIcon, HeartIcon, ShoppingCartIcon } from '@heroicons/react/24/outline'
+import { ChevronLeftIcon, ChevronRightIcon, HeartIcon, ShoppingCartIcon } from '@heroicons/react/24/outline'
 import { HeartIcon as HeartIconSolid } from '@heroicons/react/24/solid'
 import Image from 'next/image'
 import { fetchProductById, fetchProductImages, Product } from '@/lib/supabase'
@@ -219,26 +219,9 @@ export default function ProductDetailPage() {
 
           {/* Right Side - Product Details */}
           <div className="space-y-6">
-            {/* Product Title and Rating */}
+            {/* Product Title */}
             <div>
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">{product.name}</h1>
-              <div className="flex items-center space-x-2 mb-4">
-                <div className="flex items-center">
-                  {[...Array(5)].map((_, i) => (
-                    <StarIcon
-                      key={i}
-                      className={`h-5 w-5 ${
-                        i < Math.floor(product.rating || 0)
-                          ? 'text-yellow-400 fill-current'
-                          : 'text-gray-300'
-                      }`}
-                    />
-                  ))}
-                </div>
-                <span className="text-sm text-gray-500">
-                  {product.rating || 0} ({product.reviews || 0} değerlendirme)
-                </span>
-              </div>
+              <h1 className="text-3xl font-bold text-gray-900 mb-4">{product.name}</h1>
               <div className="inline-flex items-center space-x-2">
                 <span className="bg-amber-100 text-amber-800 text-sm px-3 py-1 rounded-full">
                   {product.category.replace('model-', 'Model-')}
@@ -304,6 +287,12 @@ export default function ProductDetailPage() {
                     <ShoppingCartIcon className="h-5 w-5" />
                     <span>Sepete Ekle</span>
                   </button>
+                  <button className="flex-1 bg-gray-900 text-white py-3 px-6 rounded-lg hover:bg-gray-800 transition-colors flex items-center justify-center space-x-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-5 w-5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5m11.356-1.993l1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 01-1.12-1.243l1.264-12A1.125 1.125 0 015.513 7.5h12.974c.576 0 1.059.435 1.119.007z" />
+                    </svg>
+                    <span>Sipariş Ver</span>
+                  </button>
                   <button
                     onClick={() => setIsWishlisted(!isWishlisted)}
                     className="p-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
@@ -332,12 +321,6 @@ export default function ProductDetailPage() {
                   <span className="text-sm text-gray-600">Stok Durumu:</span>
                   <span className="text-sm font-medium text-gray-900">
                     {product.in_stock ? 'Stokta Var' : 'Stokta Yok'}
-                  </span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <span className="text-sm text-gray-600">Değerlendirme:</span>
-                  <span className="text-sm font-medium text-gray-900">
-                    {product.rating || 0}/5 ({product.reviews || 0} değerlendirme)
                   </span>
                 </div>
                 {product.is_new && (

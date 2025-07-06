@@ -325,7 +325,7 @@ export default function AdminProducts() {
   const fetchProducts = async () => {
     try {
       setError(null); // Reset error state
-      console.log('Fetching products from Supabase...');
+      console.log('🔄 AdminProducts: Fetching products from Supabase...');
       
       const { data, error } = await supabase
         .from('products')
@@ -333,7 +333,7 @@ export default function AdminProducts() {
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.error('Supabase error details:', {
+        console.error('❌ AdminProducts: Supabase error details:', {
           message: error.message,
           details: error.details,
           hint: error.hint,
@@ -342,11 +342,12 @@ export default function AdminProducts() {
         throw error;
       }
       
-      console.log('Products fetched successfully:', data?.length || 0, 'products');
+      console.log('✅ AdminProducts: Products fetched successfully:', data?.length || 0, 'products');
+      console.log('📦 AdminProducts: Sample products:', data?.slice(0, 2));
       setProducts(data || []);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Bilinmeyen hata';
-      console.error('Ürünler yüklenirken hata:', {
+      console.error('❌ AdminProducts: Error details:', {
         message: errorMessage,
         error: error,
         stack: error instanceof Error ? error.stack : undefined
@@ -355,6 +356,7 @@ export default function AdminProducts() {
       setError(`Ürünler yüklenirken hata oluştu: ${errorMessage}`);
       setProducts([]);
     } finally {
+      console.log('✨ AdminProducts: Loading finished');
       setLoading(false);
     }
   };
