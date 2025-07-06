@@ -2,33 +2,62 @@
 
 import { useEffect, useState } from 'react';
 import { supabase, Product } from '@/lib/supabase';
+import { checkEnvironmentVariables } from '@/lib/env';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
 export default function AdminProducts() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [categories, setCategories] = useState<string[]>([]);
   const router = useRouter();
 
   useEffect(() => {
+    // Debug information
+    console.log('Admin Products Page Loading...');
+    
+    // Skip environment check since Supabase client is working
+    // Just load the products directly
+    console.log('Loading products...');
     fetchProducts();
     fetchCategories();
   }, []);
 
   const fetchProducts = async () => {
     try {
+      setError(null); // Reset error state
+      console.log('Fetching products from Supabase...');
+      
       const { data, error } = await supabase
         .from('products')
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase error details:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        });
+        throw error;
+      }
+      
+      console.log('Products fetched successfully:', data?.length || 0, 'products');
       setProducts(data || []);
     } catch (error) {
-      console.error('Ürünler yüklenirken hata:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Bilinmeyen hata';
+      console.error('Ürünler yüklenirken hata:', {
+        message: errorMessage,
+        error: error,
+        stack: error instanceof Error ? error.stack : undefined
+      });
+      // Kullanıcıya daha anlamlı hata mesajı göster
+      setError(`Ürünler yüklenirken hata oluştu: ${errorMessage}`);
+      setProducts([]);
     } finally {
       setLoading(false);
     }
@@ -36,17 +65,32 @@ export default function AdminProducts() {
 
   const fetchCategories = async () => {
     try {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('products')
         .select('category')
         .order('category');
+
+      if (error) {
+        console.error('Supabase error details (categories):', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        });
+        throw error;
+      }
 
       if (data) {
         const uniqueCategories = [...new Set(data.map(item => item.category))];
         setCategories(uniqueCategories);
       }
     } catch (error) {
-      console.error('Kategoriler yüklenirken hata:', error);
+      console.error('Kategoriler yüklenirken hata:', {
+        message: error instanceof Error ? error.message : 'Bilinmeyen hata',
+        error: error,
+        stack: error instanceof Error ? error.stack : undefined
+      });
+      setCategories([]);
     }
   };
 
@@ -59,13 +103,26 @@ export default function AdminProducts() {
         .delete()
         .eq('id', id);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase error details (delete):', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        });
+        throw error;
+      }
       
       setProducts(products.filter(p => p.id !== id));
       alert('Ürün başarıyla silindi!');
     } catch (error) {
-      console.error('Ürün silinirken hata:', error);
-      alert('Ürün silinirken hata oluştu!');
+      const errorMessage = error instanceof Error ? error.message : 'Bilinmeyen hata';
+      console.error('Ürün silinirken hata:', {
+        message: errorMessage,
+        error: error,
+        stack: error instanceof Error ? error.stack : undefined
+      });
+      alert(`Ürün silinirken hata oluştu: ${errorMessage}`);
     }
   };
 
@@ -76,13 +133,27 @@ export default function AdminProducts() {
         .update({ in_stock: !currentStock })
         .eq('id', id);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase error details (toggle stock):', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        });
+        throw error;
+      }
       
       setProducts(products.map(p => 
         p.id === id ? { ...p, in_stock: !currentStock } : p
       ));
     } catch (error) {
-      console.error('Stok durumu güncellenirken hata:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Bilinmeyen hata';
+      console.error('Stok durumu güncellenirken hata:', {
+        message: errorMessage,
+        error: error,
+        stack: error instanceof Error ? error.stack : undefined
+      });
+      alert(`Stok durumu güncellenirken hata oluştu: ${errorMessage}`);
     }
   };
 
@@ -98,6 +169,49 @@ export default function AdminProducts() {
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-gray-600">Ürünler yükleniyor...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    const isEnvError = error.includes('Environment değişkenleri eksik');
+    
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center max-w-2xl mx-auto p-6">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 18.5c-.77.833.192 2.5 1.732 2.5z" />
+            </svg>
+          </div>
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">
+            {isEnvError ? 'Supabase Konfigürasyonu Eksik' : 'Bir Hata Oluştu'}
+          </h2>
+          <p className="text-gray-600 mb-4">{error}</p>
+          
+          {isEnvError && (
+            <div className="bg-gray-50 rounded-lg p-4 mb-4 text-left">
+              <h3 className="font-medium text-gray-900 mb-2">Çözüm:</h3>
+              <p className="text-sm text-gray-600 mb-2">
+                Proje kök dizininde <code className="bg-gray-200 px-1 rounded">.env.local</code> dosyası oluşturun:
+              </p>
+              <pre className="bg-gray-800 text-green-400 p-3 rounded text-sm overflow-x-auto">
+                {`NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key`}
+              </pre>
+              <p className="text-xs text-gray-500 mt-2">
+                Supabase project settings → API bölümünden bu değerleri alabilirsiniz.
+              </p>
+            </div>
+          )}
+          
+          <button
+            onClick={() => window.location.reload()}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Yeniden Yükle
+          </button>
         </div>
       </div>
     );

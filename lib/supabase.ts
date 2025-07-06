@@ -1,20 +1,48 @@
 import { createClient } from '@supabase/supabase-js'
-import { supabaseConfig, canUseSupabase, handleEnvError } from './env'
+import { supabaseConfig, canUseSupabase, handleEnvError, isDevelopment } from './env'
 
-// Create Supabase client with error handling
+// Create Supabase client - handle missing config gracefully
 export const supabase = (() => {
   try {
     if (!canUseSupabase()) {
-      console.warn('Supabase not properly configured, using fallback');
-      return createClient(supabaseConfig.url, supabaseConfig.anonKey);
+      console.error('Supabase not properly configured. Please check your environment variables.');
+      
+      if (isDevelopment) {
+        console.warn(`
+🔧 Development Mode: Supabase Configuration Missing
+Please update your .env.local file with proper values:
+- NEXT_PUBLIC_SUPABASE_URL=https://your-project-id.supabase.co
+- NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+
+Current values:
+- URL: ${supabaseConfig.url || 'MISSING'}
+- Key: ${supabaseConfig.anonKey ? 'SET' : 'MISSING'}
+        `);
+      }
+      
+      // Return a minimal client that will fail gracefully
+      return createClient('https://placeholder.supabase.co', 'placeholder-key');
     }
+    
+    console.log('✅ Supabase client initialized successfully');
     return createClient(supabaseConfig.url, supabaseConfig.anonKey);
   } catch (error) {
     handleEnvError(error, 'Supabase initialization');
-    // Return a mock client for build compatibility
-    return createClient('https://example.supabase.co', 'dummy-key');
+    // Return a minimal client that will fail gracefully
+    return createClient('https://placeholder.supabase.co', 'placeholder-key');
   }
 })();
+
+// Test connection function
+export const testSupabaseConnection = async (): Promise<boolean> => {
+  try {
+    const { data, error } = await supabase.from('products').select('count', { count: 'exact', head: true });
+    return !error;
+  } catch (error) {
+    console.error('Supabase connection test failed:', error);
+    return false;
+  }
+};
 
 // Database types
 export type Database = {
@@ -109,14 +137,13 @@ export async function fetchProducts(): Promise<Product[]> {
 
     if (error) {
       console.error('Error fetching products:', error)
-      handleEnvError(error, 'fetchProducts')
-      return []
+      throw error // Re-throw instead of returning empty array
     }
 
     return data || []
   } catch (error) {
-    handleEnvError(error, 'fetchProducts')
-    return []
+    console.error('fetchProducts error:', error)
+    throw error // Re-throw instead of returning empty array
   }
 }
 

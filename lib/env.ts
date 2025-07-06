@@ -1,26 +1,46 @@
-// Environment variable validation and fallbacks
-export const getEnvVar = (key: string, defaultValue: string = ''): string => {
-  if (typeof window !== 'undefined') {
-    // Client-side
-    return process.env[key] || defaultValue;
+// Environment variable validation 
+export const getEnvVar = (key: string, required: boolean = true): string => {
+  const value = process.env[key];
+  
+  if (required && !value) {
+    console.error(`Environment variable ${key} is required but not set`);
+    return '';
   }
   
-  // Server-side
-  return process.env[key] || defaultValue;
+  return value || '';
 };
 
-// Supabase configuration with fallbacks
+// Get environment variables with fallbacks
+const getSupabaseUrl = (): string => {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (!url) {
+    console.warn('NEXT_PUBLIC_SUPABASE_URL not found in environment variables');
+    return '';
+  }
+  return url;
+};
+
+const getSupabaseAnonKey = (): string => {
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!key) {
+    console.warn('NEXT_PUBLIC_SUPABASE_ANON_KEY not found in environment variables');
+    return '';
+  }
+  return key;
+};
+
+// Supabase configuration - check for missing vars but don't throw
 export const supabaseConfig = {
-  url: getEnvVar('NEXT_PUBLIC_SUPABASE_URL', 'https://example.supabase.co'),
-  anonKey: getEnvVar('NEXT_PUBLIC_SUPABASE_ANON_KEY', 'dummy-key'),
-  serviceRoleKey: getEnvVar('SUPABASE_SERVICE_ROLE_KEY', 'dummy-service-key'),
+  url: getSupabaseUrl(),
+  anonKey: getSupabaseAnonKey(),
+  serviceRoleKey: getEnvVar('SUPABASE_SERVICE_ROLE_KEY', false),
 };
 
 // Check if we're in production and have real env vars
 export const isProductionReady = (): boolean => {
   return (
-    supabaseConfig.url !== 'https://example.supabase.co' &&
-    supabaseConfig.anonKey !== 'dummy-key' &&
+    Boolean(supabaseConfig.url) &&
+    Boolean(supabaseConfig.anonKey) &&
     supabaseConfig.url.includes('supabase.co')
   );
 };
@@ -32,15 +52,30 @@ export const isProduction = process.env.NODE_ENV === 'production';
 // Safe environment check
 export const canUseSupabase = (): boolean => {
   try {
-    return Boolean(
-      supabaseConfig.url &&
-      supabaseConfig.anonKey &&
-      supabaseConfig.url.startsWith('https://') &&
-      supabaseConfig.anonKey.length > 10
-    );
+    const hasUrl = Boolean(supabaseConfig.url) && supabaseConfig.url.startsWith('https://');
+    const hasKey = Boolean(supabaseConfig.anonKey) && supabaseConfig.anonKey.length > 20;
+    const notPlaceholder = !supabaseConfig.url.includes('your-project') && !supabaseConfig.anonKey.includes('your-anon');
+    
+    return hasUrl && hasKey && notPlaceholder;
   } catch {
     return false;
   }
+};
+
+// Check if environment variables are properly set
+export const checkEnvironmentVariables = (): { isValid: boolean; missing: string[]; hasPlaceholders: boolean } => {
+  const required = ['NEXT_PUBLIC_SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_ANON_KEY'];
+  const missing = required.filter(key => !process.env[key]);
+  
+  // Check for placeholder values
+  const hasPlaceholders = supabaseConfig.url.includes('your-project') || 
+                         supabaseConfig.anonKey.includes('your-anon');
+  
+  return {
+    isValid: missing.length === 0 && !hasPlaceholders,
+    missing,
+    hasPlaceholders
+  };
 };
 
 // Error handling for missing environment variables
