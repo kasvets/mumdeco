@@ -20,6 +20,8 @@ async function getUserFromToken(request: NextRequest) {
     return user;
   } catch (error) {
     console.error('Token verification error:', error);
+    console.error('Supabase URL:', process.env.NEXT_PUBLIC_SUPABASE_URL ? 'SET' : 'MISSING');
+    console.error('Service Key:', process.env.SUPABASE_SERVICE_KEY ? 'SET' : 'MISSING');
     return null;
   }
 }
@@ -27,6 +29,18 @@ async function getUserFromToken(request: NextRequest) {
 // Kullanıcı profil bilgilerini getir
 export async function GET(request: NextRequest) {
   try {
+    // Environment variables kontrolü
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_KEY) {
+      console.error('Missing environment variables:', {
+        SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL ? 'SET' : 'MISSING',
+        SERVICE_KEY: process.env.SUPABASE_SERVICE_KEY ? 'SET' : 'MISSING'
+      });
+      return NextResponse.json(
+        { error: 'Sunucu yapılandırma hatası.' },
+        { status: 500 }
+      );
+    }
+
     const user = await getUserFromToken(request);
     
     if (!user) {
@@ -125,6 +139,18 @@ export async function GET(request: NextRequest) {
 // Kullanıcı profil bilgilerini güncelle
 export async function PUT(request: NextRequest) {
   try {
+    // Environment variables kontrolü
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_KEY) {
+      console.error('Missing environment variables for PUT:', {
+        SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL ? 'SET' : 'MISSING',
+        SERVICE_KEY: process.env.SUPABASE_SERVICE_KEY ? 'SET' : 'MISSING'
+      });
+      return NextResponse.json(
+        { error: 'Sunucu yapılandırma hatası.' },
+        { status: 500 }
+      );
+    }
+
     const user = await getUserFromToken(request);
     
     if (!user) {

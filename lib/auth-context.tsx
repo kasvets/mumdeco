@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react'
 import { User } from '@supabase/supabase-js'
 import { supabaseClient } from './supabase-client'
+import { supabaseConfig } from './env'
 
 interface AuthContextType {
   user: User | null
@@ -43,7 +44,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const { error } = await supabaseClient.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`
+          redirectTo: `${supabaseConfig.siteUrl}/auth/callback`,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
+          scopes: 'openid email profile'
         }
       })
       

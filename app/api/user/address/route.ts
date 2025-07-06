@@ -27,6 +27,18 @@ async function getUserFromToken(request: NextRequest) {
 // Varsayılan adresi güncelle
 export async function PUT(request: NextRequest) {
   try {
+    // Environment variables kontrolü
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_KEY) {
+      console.error('Missing environment variables for address PUT:', {
+        SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL ? 'SET' : 'MISSING',
+        SERVICE_KEY: process.env.SUPABASE_SERVICE_KEY ? 'SET' : 'MISSING'
+      });
+      return NextResponse.json(
+        { error: 'Sunucu yapılandırma hatası.' },
+        { status: 500 }
+      );
+    }
+
     const user = await getUserFromToken(request);
     
     if (!user) {
@@ -36,6 +48,7 @@ export async function PUT(request: NextRequest) {
       );
     }
 
+    const supabase = getServerSupabaseClient();
     const { address_line1, city, district } = await request.json();
 
     // Veri doğrulaması

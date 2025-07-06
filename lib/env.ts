@@ -29,11 +29,23 @@ const getSupabaseAnonKey = (): string => {
   return key;
 };
 
+const getSiteUrl = (): string => {
+  const url = process.env.NEXT_PUBLIC_SITE_URL;
+  if (!url) {
+    // Development için localhost kullan
+    return process.env.NODE_ENV === 'development' 
+      ? 'http://localhost:3000' 
+      : 'https://mumdeco.com';
+  }
+  return url;
+};
+
 // Supabase configuration - check for missing vars but don't throw
 export const supabaseConfig = {
   url: getSupabaseUrl(),
   anonKey: getSupabaseAnonKey(),
-  serviceRoleKey: getEnvVar('SUPABASE_SERVICE_ROLE_KEY', false),
+  serviceRoleKey: getEnvVar('SUPABASE_SERVICE_KEY', false),
+  siteUrl: getSiteUrl(),
 };
 
 // Check if we're in production and have real env vars
@@ -64,7 +76,7 @@ export const canUseSupabase = (): boolean => {
 
 // Check if environment variables are properly set
 export const checkEnvironmentVariables = (): { isValid: boolean; missing: string[]; hasPlaceholders: boolean } => {
-  const required = ['NEXT_PUBLIC_SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_ANON_KEY'];
+  const required = ['NEXT_PUBLIC_SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_ANON_KEY', 'SUPABASE_SERVICE_KEY'];
   const missing = required.filter(key => !process.env[key]);
   
   // Check for placeholder values
