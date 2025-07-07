@@ -48,7 +48,7 @@ export default function Model1CollectionPage() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">Model-1 koleksiyonu yükleniyor...</p>
+          <p className="text-gray-600">Toscana koleksiyonu yükleniyor...</p>
         </div>
       </div>
     );
@@ -72,9 +72,9 @@ export default function Model1CollectionPage() {
               <Sparkles className="w-8 h-8 text-primary" />
             </div>
             <div>
-              <h1 className="text-4xl font-bold text-gray-900">Model-1 Serisi</h1>
+              <h1 className="text-4xl font-bold text-gray-900">Toscana</h1>
               <p className="text-gray-600 mt-2">
-                Özel tasarım ve benzersiz form mumlar - Premium kalite ve modern estetik
+                Toscana koleksiyonu - İtalyan esintileri taşıyan özel tasarım mumlar
               </p>
             </div>
           </div>
@@ -96,7 +96,7 @@ export default function Model1CollectionPage() {
               Henüz ürün bulunmuyor
             </h3>
             <p className="text-gray-600 mb-8">
-              Model-1 serisi ürünleri yakında eklenecek. Diğer koleksiyonlarımızı inceleyebilirsiniz.
+              Toscana koleksiyonu ürünleri yakında eklenecek. Diğer koleksiyonlarımızı inceleyebilirsiniz.
             </p>
             <Link 
               href="/products" 
@@ -109,19 +109,19 @@ export default function Model1CollectionPage() {
 
         {/* Collection Info */}
         <div className="mt-16 bg-white rounded-2xl p-8 shadow-lg">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">Model-1 Serisi Hakkında</h2>
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">Toscana Hakkında</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-3">Özel Tasarım</h3>
+              <h3 className="text-lg font-semibold text-gray-900 mb-3">Toscana Tasarımı</h3>
               <p className="text-gray-600">
-                Model-1 serisi, modern tasarım anlayışıyla geleneksel mum sanatını birleştiriyor. 
-                Her ürün, benzersiz formu ve estetik görünümüyle mekanınıza özel bir dokunuş katıyor.
+                Toscana koleksiyonu, İtalyan Toscana bölgesinin doğal güzelliklerinden ilham alıyor. 
+                Sıcak toprak tonları ve organik formlarla mekanınıza Akdeniz esintileri katıyor.
               </p>
             </div>
             <div>
               <h3 className="text-lg font-semibold text-gray-900 mb-3">Premium Kalite</h3>
               <p className="text-gray-600">
-                Sadece en kaliteli malzemelerden üretilen Model-1 serisi mumlar, 
+                Sadece en kaliteli malzemelerden üretilen Toscana koleksiyonu mumlar, 
                 uzun yanma süresi ve temiz alev özelliği ile günlük kullanımda mükemmel performans sunar.
               </p>
             </div>

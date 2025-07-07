@@ -6,15 +6,12 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
 const categories = [
-  'model-1',
-  'model-2',
-  'model-3',
-  'model-4',
-  'model-5',
-  'model-6',
-  'model-7',
-  'model-8',
-  'model-9'
+  { value: 'model-6', label: 'Adriatic' },
+  { value: 'model-5', label: 'Aegean' },
+  { value: 'model-4', label: 'London' },
+  { value: 'model-3', label: 'Petra' },
+  { value: 'model-2', label: 'Provence' },
+  { value: 'model-1', label: 'Toscana' },
 ];
 
 export default function NewProduct() {
@@ -273,8 +270,8 @@ Detaylı rehber için STORAGE_SETUP.md dosyasını inceleyin.
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   {categories.map(category => (
-                    <option key={category} value={category}>
-                      {category.charAt(0).toUpperCase() + category.slice(1)}
+                    <option key={category.value} value={category.value}>
+                      {category.label}
                     </option>
                   ))}
                 </select>

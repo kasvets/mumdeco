@@ -6,16 +6,33 @@ import { ChevronLeftIcon, ChevronRightIcon, HeartIcon, ShoppingCartIcon } from '
 import { HeartIcon as HeartIconSolid } from '@heroicons/react/24/solid'
 import Image from 'next/image'
 import { Product } from '@/lib/supabase'
+import { useCart } from '@/lib/cart-context'
+import CartModal from '@/components/CartModal'
+
+// Category mapping for display names
+const categoryMap: { [key: string]: string } = {
+  'model-1': 'Toscana',
+  'model-2': 'Provence',
+  'model-3': 'Petra',
+  'model-4': 'London',
+  'model-5': 'Aegean',
+  'model-6': 'Adriatic',
+};
 
 export default function ProductDetailPage() {
   const params = useParams()
   const router = useRouter()
+  const { addToCart } = useCart()
   const [product, setProduct] = useState<Product | null>(null)
   const [productImages, setProductImages] = useState<string[]>([])
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
   const [isWishlisted, setIsWishlisted] = useState(false)
   const [quantity, setQuantity] = useState(1)
+  const [addingToCart, setAddingToCart] = useState(false)
+  const [showCartModal, setShowCartModal] = useState(false)
+  const [addedProduct, setAddedProduct] = useState<Product | null>(null)
+  const [addedQuantity, setAddedQuantity] = useState(1)
 
   // Storage'dan tüm görselleri yükle
   const loadProductImages = async (productId: number, mainImageUrl: string | null) => {
@@ -149,6 +166,38 @@ export default function ProductDetailPage() {
     setCurrentImageIndex(index)
   }
 
+  const handleAddToCart = async () => {
+    if (!product) return
+    
+    setAddingToCart(true)
+    try {
+      addToCart(product, quantity)
+      
+      // Show modal instead of alert
+      setAddedProduct(product)
+      setAddedQuantity(quantity)
+      setShowCartModal(true)
+      
+      // Optional: Reset quantity to 1 after adding to cart
+      setQuantity(1)
+    } catch (error) {
+      console.error('Error adding to cart:', error)
+      alert('Sepete eklenirken bir hata oluştu. Lütfen tekrar deneyin.')
+    } finally {
+      setAddingToCart(false)
+    }
+  }
+
+  const handleOrderNow = async () => {
+    if (!product) return
+    
+    // Add to cart first
+    addToCart(product, quantity)
+    
+    // Navigate to cart page
+    router.push('/cart')
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 pt-[220px] md:pt-[240px]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -166,7 +215,7 @@ export default function ProductDetailPage() {
             onClick={() => router.push(`/products?category=${product.category}`)} 
             className="hover:text-amber-600"
           >
-            {product.category.replace('model-', 'Model-')}
+            {categoryMap[product.category] || product.category}
           </button>
           <span>/</span>
           <span className="text-gray-900">
@@ -257,7 +306,7 @@ export default function ProductDetailPage() {
               <h1 className="text-3xl font-bold text-gray-900 mb-4">{product.name}</h1>
               <div className="inline-flex items-center space-x-2">
                 <span className="bg-amber-100 text-amber-800 text-sm px-3 py-1 rounded-full">
-                  {product.category.replace('model-', 'Model-')}
+                  {categoryMap[product.category] || product.category}
                 </span>
                 {product.is_new && (
                   <span className="bg-red-100 text-red-800 text-sm px-3 py-1 rounded-full">
@@ -316,11 +365,28 @@ export default function ProductDetailPage() {
                 </div>
 
                 <div className="flex space-x-4">
-                  <button className="flex-1 bg-amber-600 text-white py-3 px-6 rounded-lg hover:bg-amber-700 transition-colors flex items-center justify-center space-x-2">
-                    <ShoppingCartIcon className="h-5 w-5" />
-                    <span>Sepete Ekle</span>
+                  <button 
+                    onClick={handleAddToCart}
+                    disabled={!product.in_stock || addingToCart}
+                    className="flex-1 bg-amber-600 text-white py-3 px-6 rounded-lg hover:bg-amber-700 transition-colors flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {addingToCart ? (
+                      <>
+                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                        <span>Ekleniyor...</span>
+                      </>
+                    ) : (
+                      <>
+                        <ShoppingCartIcon className="h-5 w-5" />
+                        <span>Sepete Ekle</span>
+                      </>
+                    )}
                   </button>
-                  <button className="flex-1 bg-gray-900 text-white py-3 px-6 rounded-lg hover:bg-gray-800 transition-colors flex items-center justify-center space-x-2">
+                  <button 
+                    onClick={handleOrderNow}
+                    disabled={!product.in_stock}
+                    className="flex-1 bg-gray-900 text-white py-3 px-6 rounded-lg hover:bg-gray-800 transition-colors flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-5 w-5">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5m11.356-1.993l1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 01-1.12-1.243l1.264-12A1.125 1.125 0 015.513 7.5h12.974c.576 0 1.059.435 1.119.007z" />
                     </svg>
@@ -347,7 +413,7 @@ export default function ProductDetailPage() {
                 <div className="flex items-center space-x-2">
                   <span className="text-sm text-gray-600">Kategori:</span>
                   <span className="text-sm font-medium text-gray-900">
-                    {product.category.replace('model-', 'Model-')}
+                    {categoryMap[product.category] || product.category}
                   </span>
                 </div>
                 <div className="flex items-center space-x-2">
@@ -367,6 +433,14 @@ export default function ProductDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Cart Modal */}
+      <CartModal
+        isOpen={showCartModal}
+        onClose={() => setShowCartModal(false)}
+        product={addedProduct}
+        quantity={addedQuantity}
+      />
     </div>
   )
 } 

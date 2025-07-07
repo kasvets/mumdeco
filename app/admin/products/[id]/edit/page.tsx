@@ -6,15 +6,12 @@ import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 
 const categories = [
-  'model-1',
-  'model-2',
-  'model-3',
-  'model-4',
-  'model-5',
-  'model-6',
-  'model-7',
-  'model-8',
-  'model-9'
+  { value: 'model-6', label: 'Adriatic' },
+  { value: 'model-5', label: 'Aegean' },
+  { value: 'model-4', label: 'London' },
+  { value: 'model-3', label: 'Petra' },
+  { value: 'model-2', label: 'Provence' },
+  { value: 'model-1', label: 'Toscana' },
 ];
 
 export default function EditProduct() {
@@ -84,10 +81,18 @@ export default function EditProduct() {
 
   useEffect(() => {
     if (productId) {
-      fetchProduct();
-      fetchExistingImages();
+      const loadData = async () => {
+        await fetchProduct();
+        await fetchExistingImages();
+      };
+      loadData();
     }
   }, [productId]);
+
+  // Debug: existingImages state'i değiştiğinde log yap
+  useEffect(() => {
+    console.log('📸 Existing images state updated:', existingImages);
+  }, [existingImages]);
 
   const fetchProduct = async () => {
     try {
@@ -120,9 +125,11 @@ export default function EditProduct() {
 
         // Eğer database'de image_url varsa, onu existing images listesine ekle
         if (data.image_url) {
+          console.log('📸 Database image_url found:', data.image_url);
           setExistingImages(prev => {
-            // Eğer URL zaten listede yoksa ekle
+            // Eğer URL zaten listede yoksa en başa ekle (ana görsel olarak)
             if (!prev.includes(data.image_url)) {
+              console.log('📸 Adding main image to existing images:', data.image_url);
               return [data.image_url, ...prev];
             }
             return prev;
@@ -147,7 +154,14 @@ export default function EditProduct() {
       if (response.ok) {
         const result = await response.json();
         if (result.success && result.images) {
-          setExistingImages(result.images);
+          console.log('📸 Storage images found:', result.images);
+          setExistingImages(prev => {
+            // Mevcut görselleri koruyarak yeni görselleri ekle
+            const newImages = result.images.filter((img: string) => !prev.includes(img));
+            console.log('📸 Adding new images from storage:', newImages);
+            console.log('📸 Final existing images:', [...prev, ...newImages]);
+            return [...prev, ...newImages];
+          });
         }
       }
     } catch (error) {
@@ -790,9 +804,9 @@ Detaylı rehber için STORAGE_SETUP.md dosyasını inceleyin.`;
                   onChange={handleInputChange}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
-                  {categories.map(category => (
-                    <option key={category} value={category}>
-                      {category.charAt(0).toUpperCase() + category.slice(1)}
+                  {categories.map((category) => (
+                    <option key={category.value} value={category.value}>
+                      {category.label}
                     </option>
                   ))}
                 </select>
@@ -870,6 +884,8 @@ Detaylı rehber için STORAGE_SETUP.md dosyasını inceleyin.`;
                           src={url}
                           alt={`Mevcut görsel ${index + 1}`}
                           className="w-full h-full object-contain"
+                          onLoad={() => console.log('📸 Image loaded successfully:', url)}
+                          onError={(e) => console.error('📸 Image failed to load:', url, e)}
                         />
                       </div>
                       

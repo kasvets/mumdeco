@@ -4,10 +4,12 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link'
 import Image from 'next/image'
 import { useAuth } from '@/lib/auth-context'
+import { useCart } from '@/lib/cart-context'
 import UserProfileModal from './UserProfileModal'
 
 const Navbar = () => {
   const { user, userProfile, loading } = useAuth();
+  const { getTotalItems, getTotal } = useCart();
   const [isOpen, setIsOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
@@ -137,9 +139,15 @@ const Navbar = () => {
                     className="w-5 h-5 text-black group-hover:scale-110 transition-transform">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
                   </svg>
-                  <span className="absolute -top-2 -right-2 w-4 h-4 bg-primary text-white text-xs flex items-center justify-center rounded-full">0</span>
+                  {getTotalItems() > 0 && (
+                    <span className="absolute -top-2 -right-2 w-4 h-4 bg-primary text-white text-xs flex items-center justify-center rounded-full">
+                      {getTotalItems()}
+                    </span>
+                  )}
                 </div>
-                <span className="text-base font-medium">0,00₺</span>
+                <span className="text-base font-medium">
+                  {new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(getTotal())}
+                </span>
               </Link>
             </div>
           </div>

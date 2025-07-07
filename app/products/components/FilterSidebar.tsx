@@ -1,7 +1,21 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { X, Filter, ChevronDown, ChevronUp } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+
+interface Product {
+  id: number;
+  name: string;
+  category: string;
+  price: number;
+  old_price?: number;
+  image_url?: string;
+  is_new?: boolean;
+  in_stock?: boolean;
+  rating?: number;
+  reviews?: number;
+}
 
 interface ProductFilters {
   category: string;
@@ -20,15 +34,12 @@ interface FilterSidebarProps {
 
 const categories = [
   { id: 'all', label: 'Tümü' },
-  { id: 'model-1', label: 'Model-1 Serisi' },
-  { id: 'model-2', label: 'Model-2 Serisi' },
-  { id: 'model-3', label: 'Model-3 Serisi' },
-  { id: 'model-4', label: 'Model-4 Serisi' },
-  { id: 'model-5', label: 'Model-5 Serisi' },
-  { id: 'model-6', label: 'Model-6 Serisi' },
-  { id: 'model-7', label: 'Model-7 Serisi' },
-  { id: 'model-8', label: 'Model-8 Serisi' },
-  { id: 'model-9', label: 'Model-9 Serisi' },
+  { id: 'model-6', label: 'Adriatic' },
+  { id: 'model-5', label: 'Aegean' },
+  { id: 'model-4', label: 'London' },
+  { id: 'model-3', label: 'Petra' },
+  { id: 'model-2', label: 'Provence' },
+  { id: 'model-1', label: 'Toscana' },
 ];
 
 const sortOptions = [
@@ -52,10 +63,51 @@ export default function FilterSidebar({
     other: false,
   });
 
+  const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const router = useRouter();
+
+  // Fetch products for category display
+  useEffect(() => {
+    async function fetchProducts() {
+      try {
+        const response = await fetch('/api/debug/products');
+        const result = await response.json();
+        
+        if (result.products) {
+          setProducts(result.products);
+        }
+      } catch (error) {
+        console.error('Error fetching products for filter:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    
+    fetchProducts();
+  }, []);
+
+  // Group products by category
+  const productsByCategory = products.reduce((acc: Record<string, Product[]>, product) => {
+    if (!acc[product.category]) {
+      acc[product.category] = [];
+    }
+    acc[product.category].push(product);
+    return acc;
+  }, {});
+
   const toggleSection = (section: keyof typeof expandedSections) => {
     setExpandedSections(prev => ({
       ...prev,
       [section]: !prev[section]
+    }));
+  };
+
+  const toggleCategory = (categoryId: string) => {
+    setExpandedCategories(prev => ({
+      ...prev,
+      [categoryId]: !prev[categoryId]
     }));
   };
 
@@ -71,6 +123,19 @@ export default function FilterSidebar({
       inStock: false,
       onSale: false,
     });
+  };
+
+  const formatPrice = (price: number) => {
+    return new Intl.NumberFormat('tr-TR', {
+      style: 'currency',
+      currency: 'TRY',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(price);
+  };
+
+  const handleProductClick = (productId: number) => {
+    router.push(`/products/${productId}`);
   };
 
   return (
@@ -103,7 +168,7 @@ export default function FilterSidebar({
 
       {/* Filters */}
       <div className="space-y-4">
-        {/* Category Filter */}
+        {/* Category Filter with Products */}
         <div className="bg-gray-50/50 rounded-lg p-3 border border-gray-100">
           <button
             onClick={() => toggleSection('category')}
@@ -111,7 +176,7 @@ export default function FilterSidebar({
           >
             <h3 className="text-base font-semibold text-gray-900 flex items-center gap-2">
               <div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
-              Kategori
+              Kategoriler ve Ürünler
             </h3>
             <div className={`p-1 rounded-full transition-transform duration-200 ${
               expandedSections.category ? 'rotate-180' : ''
@@ -121,27 +186,92 @@ export default function FilterSidebar({
           </button>
           
           {expandedSections.category && (
-            <div className="space-y-1 animate-in slide-in-from-top-1 duration-200">
-              {categories.map(category => (
-                <label 
-                  key={category.id} 
-                  className="flex items-center cursor-pointer p-2 rounded-lg hover:bg-white transition-all duration-200 group"
-                >
-                  <input
-                    type="radio"
-                    name="category"
-                    value={category.id}
-                    checked={filters.category === category.id || (category.id === 'all' && !filters.category)}
-                    onChange={(e) => updateFilters({ 
-                      category: e.target.value === 'all' ? '' : e.target.value 
-                    })}
-                    className="mr-2 w-3.5 h-3.5 text-primary focus:ring-primary focus:ring-2 transition-all"
-                  />
-                  <span className="text-sm text-gray-700 group-hover:text-gray-900 font-medium transition-colors">
-                    {category.label}
-                  </span>
-                </label>
-              ))}
+            <div className="space-y-2 animate-in slide-in-from-top-1 duration-200">
+              {/* All Products Option */}
+              <label className="flex items-center cursor-pointer p-2 rounded-lg hover:bg-white transition-all duration-200 group">
+                <input
+                  type="radio"
+                  name="category"
+                  value="all"
+                  checked={!filters.category}
+                  onChange={() => updateFilters({ category: '' })}
+                  className="mr-2 w-3.5 h-3.5 text-primary focus:ring-primary focus:ring-2 transition-all"
+                />
+                <span className="text-sm text-gray-700 group-hover:text-gray-900 font-medium transition-colors">
+                  Tüm Ürünler
+                </span>
+              </label>
+
+              {/* Category Groups with Products */}
+              {!loading && categories.slice(1).map(category => {
+                const categoryProducts = productsByCategory[category.id] || [];
+
+                return (
+                  <div key={category.id} className="border border-gray-200 rounded-lg overflow-hidden">
+                    {/* Category Header */}
+                    <div className="bg-white p-2">
+                      <div className="flex items-center justify-between">
+                        <label className="flex items-center cursor-pointer group flex-1">
+                          <input
+                            type="radio"
+                            name="category"
+                            value={category.id}
+                            checked={filters.category === category.id}
+                            onChange={() => updateFilters({ category: category.id })}
+                            className="mr-2 w-3.5 h-3.5 text-primary focus:ring-primary focus:ring-2 transition-all"
+                          />
+                          <span className="text-sm text-gray-700 group-hover:text-gray-900 font-medium transition-colors">
+                            {category.label}
+                          </span>
+                          <span className="ml-2 text-xs text-gray-500">
+                            ({categoryProducts.length})
+                          </span>
+                        </label>
+                        <button
+                          onClick={() => toggleCategory(category.id)}
+                          className="p-1 hover:bg-gray-100 rounded transition-colors"
+                        >
+                          {expandedCategories[category.id] ? (
+                            <ChevronUp className="w-4 h-4 text-gray-500" />
+                          ) : (
+                            <ChevronDown className="w-4 h-4 text-gray-500" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Products List */}
+                    {expandedCategories[category.id] && (
+                      <div className="bg-gray-50 p-2 space-y-1">
+                        {categoryProducts.length > 0 ? (
+                          categoryProducts.map(product => (
+                            <button
+                              key={product.id}
+                              onClick={() => handleProductClick(product.id)}
+                              className="w-full text-left p-2 bg-white rounded text-sm hover:bg-primary/5 hover:text-primary transition-colors cursor-pointer"
+                            >
+                              <div className="text-gray-800 font-medium hover:text-primary transition-colors">
+                                {product.name}
+                              </div>
+                            </button>
+                          ))
+                        ) : (
+                          <div className="p-2 text-center text-gray-500 text-sm italic">
+                            Bu kategoride henüz ürün yok
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+
+              {loading && (
+                <div className="flex items-center justify-center p-4">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+                  <span className="ml-2 text-sm text-gray-500">Ürünler yükleniyor...</span>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -192,7 +322,7 @@ export default function FilterSidebar({
               </div>
               <div className="flex items-center justify-center">
                 <div className="px-3 py-1.5 bg-primary/10 text-primary rounded-lg font-medium text-sm">
-                  ₺{filters.priceRange[0]} - ₺{filters.priceRange[1]}
+                  {formatPrice(filters.priceRange[0])} - {formatPrice(filters.priceRange[1])}
                 </div>
               </div>
             </div>
@@ -217,18 +347,27 @@ export default function FilterSidebar({
           </button>
           
           {expandedSections.sort && (
-            <div className="animate-in slide-in-from-top-1 duration-200">
-              <select
-                value={filters.sortBy}
-                onChange={(e) => updateFilters({ sortBy: e.target.value as ProductFilters['sortBy'] })}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all bg-white font-medium text-sm"
-              >
-                {sortOptions.map(option => (
-                  <option key={option.value} value={option.value}>
+            <div className="space-y-1 animate-in slide-in-from-top-1 duration-200">
+              {sortOptions.map(option => (
+                <label 
+                  key={option.value} 
+                  className="flex items-center cursor-pointer p-2 rounded-lg hover:bg-white transition-all duration-200 group"
+                >
+                  <input
+                    type="radio"
+                    name="sort"
+                    value={option.value}
+                    checked={filters.sortBy === option.value}
+                    onChange={(e) => updateFilters({ 
+                      sortBy: e.target.value as ProductFilters['sortBy']
+                    })}
+                    className="mr-2 w-3.5 h-3.5 text-primary focus:ring-primary focus:ring-2 transition-all"
+                  />
+                  <span className="text-sm text-gray-700 group-hover:text-gray-900 font-medium transition-colors">
                     {option.label}
-                  </option>
-                ))}
-              </select>
+                  </span>
+                </label>
+              ))}
             </div>
           )}
         </div>
@@ -257,7 +396,7 @@ export default function FilterSidebar({
                   type="checkbox"
                   checked={filters.inStock}
                   onChange={(e) => updateFilters({ inStock: e.target.checked })}
-                  className="mr-2 w-3.5 h-3.5 text-primary focus:ring-primary focus:ring-2 transition-all"
+                  className="mr-2 w-3.5 h-3.5 text-primary focus:ring-primary focus:ring-2 rounded transition-all"
                 />
                 <span className="text-sm text-gray-700 group-hover:text-gray-900 font-medium transition-colors">
                   Sadece Stokta Olanlar
@@ -269,7 +408,7 @@ export default function FilterSidebar({
                   type="checkbox"
                   checked={filters.onSale}
                   onChange={(e) => updateFilters({ onSale: e.target.checked })}
-                  className="mr-2 w-3.5 h-3.5 text-primary focus:ring-primary focus:ring-2 transition-all"
+                  className="mr-2 w-3.5 h-3.5 text-primary focus:ring-primary focus:ring-2 rounded transition-all"
                 />
                 <span className="text-sm text-gray-700 group-hover:text-gray-900 font-medium transition-colors">
                   İndirimli Ürünler
@@ -278,16 +417,15 @@ export default function FilterSidebar({
             </div>
           )}
         </div>
-      </div>
 
-      {/* Clear Filters Button */}
-      <button
-        onClick={clearFilters}
-        className="w-full mt-6 px-4 py-2.5 bg-gradient-to-r from-red-50 to-red-100 border border-red-200 text-red-700 rounded-lg hover:from-red-100 hover:to-red-200 hover:border-red-300 transition-all duration-200 font-medium flex items-center justify-center gap-2 group text-sm"
-      >
-        <X className="w-4 h-4 group-hover:rotate-90 transition-transform duration-200" />
-        Filtreleri Temizle
-      </button>
+        {/* Clear Filters Button */}
+        <button
+          onClick={clearFilters}
+          className="w-full py-2.5 px-4 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors"
+        >
+          Filtreleri Temizle
+        </button>
+      </div>
     </div>
   );
 } 
