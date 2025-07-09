@@ -43,11 +43,11 @@ const Navbar = () => {
       <div className={`bg-black text-white transition-all duration-300 ${isScrolled ? 'h-0 overflow-hidden' : 'py-2.5'}`}>
         <div className="container flex items-center justify-between max-w-[98%] mx-auto px-4">
           <div className="flex items-center space-x-6">
-            <Link href="tel:+905555555555" className="text-sm hover:text-white/80 transition-colors flex items-center space-x-2">
+            <Link href="tel:+905324672418" className="text-sm hover:text-white/80 transition-colors flex items-center space-x-2">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
               </svg>
-              <span>+90 555 555 55 55</span>
+              <span>+90 532 467 24 18</span>
             </Link>
             <Link href="mailto:info@mumdeco.com" className="text-sm hover:text-white/80 transition-colors flex items-center space-x-2">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -170,16 +170,8 @@ const Navbar = () => {
                 Hakkımızda
                 <span className="absolute bottom-0 left-0 w-full h-0.5 bg-primary scale-x-0 group-hover:scale-x-100 transition-transform origin-left"></span>
               </Link>
-              <Link href="/recipes" className="text-xl font-serif font-medium hover:text-primary transition-colors relative group">
-                Tarifler
-                <span className="absolute bottom-0 left-0 w-full h-0.5 bg-primary scale-x-0 group-hover:scale-x-100 transition-transform origin-left"></span>
-              </Link>
               <Link href="/blog" className="text-xl font-serif font-medium hover:text-primary transition-colors relative group">
                 Blog
-                <span className="absolute bottom-0 left-0 w-full h-0.5 bg-primary scale-x-0 group-hover:scale-x-100 transition-transform origin-left"></span>
-              </Link>
-              <Link href="/theme-features" className="text-xl font-serif font-medium hover:text-primary transition-colors relative group">
-                Özellikler
                 <span className="absolute bottom-0 left-0 w-full h-0.5 bg-primary scale-x-0 group-hover:scale-x-100 transition-transform origin-left"></span>
               </Link>
             </div>
@@ -222,9 +214,7 @@ const Navbar = () => {
               <Link href="/" className="block text-xl font-serif font-medium hover:text-primary py-2">Anasayfa</Link>
               <Link href="/products" className="block text-xl font-serif font-medium hover:text-primary py-2">Ürünler</Link>
               <Link href="/about" className="block text-xl font-serif font-medium hover:text-primary py-2">Hakkımızda</Link>
-              <Link href="/recipes" className="block text-xl font-serif font-medium hover:text-primary py-2">Tarifler</Link>
               <Link href="/blog" className="block text-xl font-serif font-medium hover:text-primary py-2">Blog</Link>
-              <Link href="/theme-features" className="block text-xl font-serif font-medium hover:text-primary py-2">Özellikler</Link>
             </div>
           </div>
         </div>
