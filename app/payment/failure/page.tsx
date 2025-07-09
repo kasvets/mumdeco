@@ -1,139 +1,179 @@
 'use client';
 
 import { useEffect, useState, Suspense } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
+import { XCircleIcon, ArrowRightIcon, HomeIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import Link from 'next/link';
-import { XCircle, RefreshCw, Home, MessageCircle } from 'lucide-react';
 
 // Suspense ile sarmalanan SearchParams component
-function SearchParamsWrapper({ setFailureReason, setMerchantOid, setIsLoading }: {
-  setFailureReason: (reason: string) => void;
-  setMerchantOid: (oid: string) => void;
-  setIsLoading: (loading: boolean) => void;
+function SearchParamsWrapper({ setOrderInfo, setLoading }: {
+  setOrderInfo: (info: any) => void;
+  setLoading: (loading: boolean) => void;
 }) {
   const searchParams = useSearchParams();
 
   useEffect(() => {
-    // URL parametrelerini al
-    const reason = searchParams.get('reason') || '';
-    const oid = searchParams.get('merchant_oid') || '';
+    // URL parametrelerinden bilgileri al
+    const merchant_oid = searchParams.get('merchant_oid') || searchParams.get('orderId');
+    const status = searchParams.get('status');
+    const failed_reason_msg = searchParams.get('failed_reason_msg');
+    const failed_reason_code = searchParams.get('failed_reason_code');
+    const total_amount = searchParams.get('total_amount');
     
-    setFailureReason(reason);
-    setMerchantOid(oid);
-    setIsLoading(false);
-  }, [searchParams, setFailureReason, setMerchantOid, setIsLoading]);
+    setOrderInfo({
+      merchant_oid,
+      status,
+      failed_reason_msg,
+      failed_reason_code,
+      total_amount: total_amount ? (parseFloat(total_amount) / 100).toFixed(2) : null // PayTR kuruş cinsinden gönderir
+    });
+    
+    setLoading(false);
+  }, [searchParams, setOrderInfo, setLoading]);
 
   return null;
 }
 
 export default function PaymentFailurePage() {
-  const router = useRouter();
-  const [isLoading, setIsLoading] = useState(true);
-  const [failureReason, setFailureReason] = useState('');
-  const [merchantOid, setMerchantOid] = useState('');
+  const [orderInfo, setOrderInfo] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
-  const handleRetryPayment = () => {
-    // Sepet sayfasına yönlendir
-    router.push('/cart');
-  };
-
-  if (isLoading) {
+  if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-500 mx-auto mb-4"></div>
-          <p className="text-gray-600">Yükleniyor...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-500 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Ödeme bilgileri yükleniyor...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12 pt-44 md:pt-60">
-      <Suspense fallback={<div className="min-h-screen bg-gray-50 flex items-center justify-center"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-500 mx-auto"></div></div>}>
+    <div className="min-h-screen bg-gray-50 py-8">
+      <Suspense fallback={
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-500 mx-auto"></div>
+        </div>
+      }>
         <SearchParamsWrapper 
-          setFailureReason={setFailureReason}
-          setMerchantOid={setMerchantOid}
-          setIsLoading={setIsLoading}
+          setOrderInfo={setOrderInfo}
+          setLoading={setLoading}
         />
       </Suspense>
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center">
-          {/* Failure Icon */}
-          <div className="mx-auto w-24 h-24 bg-red-100 rounded-full flex items-center justify-center mb-8">
-            <XCircle className="w-12 h-12 text-red-600" />
+      
+      <div className="max-w-2xl mx-auto px-4">
+        {/* Failure Header */}
+        <div className="bg-white rounded-lg shadow-lg p-8 mb-6">
+          <div className="text-center">
+            <XCircleIcon className="h-20 w-20 text-red-500 mx-auto mb-6" />
+            <h1 className="text-4xl font-bold text-gray-900 mb-4">
+              ❌ Ödeme Başarısız
+            </h1>
+            <p className="text-lg text-gray-600 mb-6">
+              Üzgünüz, ödeme işleminiz tamamlanamadı.
+            </p>
+            
+            {orderInfo?.merchant_oid && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-6 mb-6">
+                <h3 className="text-lg font-semibold text-red-800 mb-3">İşlem Detayları</h3>
+                <div className="space-y-2 text-left">
+                  <p className="text-red-700">
+                    <span className="font-medium">Sipariş No:</span> {orderInfo.merchant_oid}
+                  </p>
+                  {orderInfo.total_amount && (
+                    <p className="text-red-700">
+                      <span className="font-medium">Tutar:</span> ₺{orderInfo.total_amount}
+                    </p>
+                  )}
+                  <p className="text-red-700">
+                    <span className="font-medium">Tarih:</span> {new Date().toLocaleString('tr-TR')}
+                  </p>
+                  <p className="text-red-700">
+                    <span className="font-medium">Durum:</span> Ödeme Başarısız ❌
+                  </p>
+                  {orderInfo.failed_reason_msg && (
+                    <p className="text-red-700">
+                      <span className="font-medium">Hata:</span> {orderInfo.failed_reason_msg}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+            
+            <div className="space-y-4">
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                <div className="flex items-start">
+                  <ExclamationTriangleIcon className="h-6 w-6 text-yellow-600 mr-3 mt-1 flex-shrink-0" />
+                  <div className="text-left">
+                    <p className="text-yellow-800 text-sm font-medium mb-2">
+                      Olası Nedenler:
+                    </p>
+                    <ul className="text-yellow-700 text-sm space-y-1">
+                      <li>• Kartınızda yeterli limit bulunmuyor</li>
+                      <li>• Kart bilgileriniz hatalı girildi</li>
+                      <li>• 3D Secure doğrulaması başarısız</li>
+                      <li>• Bankanız işlemi güvenlik nedeniyle bloke etti</li>
+                      <li>• İnternet bağlantısı sorunu yaşandı</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <p className="text-blue-800 text-sm">
+                  <strong>Öneriler:</strong><br/>
+                  • Kart bilgilerinizi kontrol ederek tekrar deneyiniz<br/>
+                  • Farklı bir kart ile ödeme yapmayı deneyiniz<br/>
+                  • Bankanızla iletişime geçiniz<br/>
+                  • Daha sonra tekrar deneyiniz
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="bg-white rounded-lg shadow-lg p-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Link 
+              href="/cart"
+              className="bg-blue-600 text-white px-6 py-4 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center font-medium"
+            >
+              <ArrowRightIcon className="h-5 w-5 mr-2" />
+              Tekrar Dene
+            </Link>
+            <Link 
+              href="/"
+              className="bg-gray-600 text-white px-6 py-4 rounded-lg hover:bg-gray-700 transition-colors flex items-center justify-center font-medium"
+            >
+              <HomeIcon className="h-5 w-5 mr-2" />
+              Ana Sayfaya Dön
+            </Link>
           </div>
           
-          <div className="bg-white rounded-2xl shadow-lg p-8 md:p-12 max-w-2xl mx-auto">
-            <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-              Ödeme Başarısız
-            </h1>
-            
-            <p className="text-gray-600 mb-6 text-lg">
-              Maalesef ödeme işleminiz tamamlanamadı. Lütfen tekrar deneyin.
+          <div className="mt-6 text-center">
+            <p className="text-sm text-gray-500 mb-2">
+              Yardıma mı ihtiyacınız var?
             </p>
-
-            {/* Failure Details */}
-            {failureReason && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-                <h3 className="font-semibold text-red-800 mb-2">Hata Detayı:</h3>
-                <p className="text-red-700">{failureReason}</p>
-              </div>
-            )}
-
-            {/* Order ID */}
-            {merchantOid && (
-              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-6">
-                <h3 className="font-semibold text-gray-800 mb-2">Sipariş Numarası:</h3>
-                <p className="text-gray-700 font-mono text-sm">{merchantOid}</p>
-              </div>
-            )}
-
-            {/* Common Failure Reasons */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-8">
-              <h3 className="font-semibold text-blue-800 mb-3">Olası Nedenler:</h3>
-              <ul className="text-blue-700 text-sm space-y-1 text-left">
-                <li>• Kart bilgileri hatalı girildi</li>
-                <li>• Kartınızda yeterli bakiye bulunmuyor</li>
-                <li>• Kartınız online alışverişe kapalı</li>
-                <li>• Bankanız tarafından işlem reddedildi</li>
-                <li>• Ağ bağlantısı sorunu yaşandı</li>
-              </ul>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="space-y-4">
-              <button
-                onClick={handleRetryPayment}
-                className="w-full bg-amber-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-amber-700 transition-colors flex items-center justify-center"
-              >
-                <RefreshCw className="w-5 h-5 mr-2" />
-                Tekrar Dene
-              </button>
-              
-              <div className="flex flex-col sm:flex-row gap-4">
-                <Link
-                  href="/"
-                  className="flex-1 bg-gray-100 text-gray-700 py-3 px-6 rounded-lg font-semibold hover:bg-gray-200 transition-colors flex items-center justify-center"
-                >
-                  <Home className="w-5 h-5 mr-2" />
-                  Ana Sayfa
-                </Link>
-                
-                <Link
-                  href="/contact"
-                  className="flex-1 bg-blue-100 text-blue-700 py-3 px-6 rounded-lg font-semibold hover:bg-blue-200 transition-colors flex items-center justify-center"
-                >
-                  <MessageCircle className="w-5 h-5 mr-2" />
-                  Destek
-                </Link>
-              </div>
-            </div>
-
-            {/* Help Text */}
-            <div className="mt-8 pt-6 border-t border-gray-200 text-center">
-              <p className="text-gray-500 text-sm">
-                Sorun devam ederse lütfen <Link href="/contact" className="text-amber-600 hover:text-amber-700">iletişim</Link> sayfasından bizimle iletişime geçin.
+            <div className="space-y-1">
+              <p className="text-sm text-gray-500">
+                📧 E-posta: 
+                <a href="mailto:info@mumdeco.com" className="text-blue-600 hover:text-blue-800 ml-1">
+                  info@mumdeco.com
+                </a>
+              </p>
+              <p className="text-sm text-gray-500">
+                📞 Telefon: 
+                <a href="tel:+905324672418" className="text-blue-600 hover:text-blue-800 ml-1">
+                  +90 532 467 24 18
+                </a>
+              </p>
+              <p className="text-sm text-gray-500">
+                💬 WhatsApp: 
+                <a href="https://wa.me/905324672418" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 ml-1">
+                  +90 532 467 24 18
+                </a>
               </p>
             </div>
           </div>

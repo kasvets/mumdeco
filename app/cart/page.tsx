@@ -133,22 +133,22 @@ export default function CartPage() {
 
   if (items.length === 0) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 pt-44 md:pt-60">        
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 pt-[140px] sm:pt-[160px] md:pt-[180px] lg:pt-[200px]">        
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
             {/* Empty cart illustration */}
-            <div className="mx-auto w-40 h-40 bg-gradient-to-br from-amber-100 to-orange-100 rounded-full flex items-center justify-center mb-8 shadow-lg">
-              <ShoppingBag className="w-20 h-20 text-amber-600" />
+            <div className="mx-auto w-32 h-32 sm:w-40 sm:h-40 bg-gradient-to-br from-amber-100 to-orange-100 rounded-full flex items-center justify-center mb-6 sm:mb-8 shadow-lg">
+              <ShoppingBag className="w-16 h-16 sm:w-20 sm:h-20 text-amber-600" />
             </div>
             
-            <div className="bg-white rounded-2xl shadow-lg p-8 md:p-12 max-w-2xl mx-auto">
-              <h1 className="text-4xl font-bold text-gray-900 mb-4">Sepetiniz Boş</h1>
-              <p className="text-gray-600 mb-8 text-lg leading-relaxed">
+            <div className="bg-white rounded-2xl shadow-lg p-6 sm:p-8 md:p-12 max-w-2xl mx-auto">
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 mb-4">Sepetiniz Boş</h1>
+              <p className="text-gray-600 mb-6 sm:mb-8 text-base sm:text-lg leading-relaxed px-2 sm:px-0">
                 Henüz sepetinizde ürün bulunmamaktadır. Özel tasarım mumlarımızı keşfetmek için ürünlerimize göz atın.
               </p>
               
               {/* Features */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 sm:mb-8">
                 <div className="text-center p-4">
                   <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-2">
                     <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -210,7 +210,7 @@ export default function CartPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 py-12 pt-44 md:pt-60">
+      <div className="min-h-screen bg-gray-50 py-8 sm:py-12 pt-[140px] sm:pt-[160px] md:pt-[180px] lg:pt-[200px]">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-amber-500 mx-auto"></div>
@@ -222,92 +222,97 @@ export default function CartPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12 pt-44 md:pt-60">
+    <div className="min-h-screen bg-gray-50 py-8 sm:py-12 pt-[140px] sm:pt-[160px] md:pt-[180px] lg:pt-[200px]">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Sepetim</h1>
-          <p className="text-gray-600">{items.length} ürün sepetinizde</p>
+        <div className="mb-6 sm:mb-8">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Sepetim</h1>
+          <p className="text-gray-600 text-sm sm:text-base">{items.length} ürün sepetinizde</p>
         </div>
 
         <div className="lg:grid lg:grid-cols-12 lg:gap-8">
           {/* Cart Items */}
           <div className="lg:col-span-8">
             <div className="bg-white rounded-lg shadow-sm">
-              <div className="p-6">
+              <div className="p-4 sm:p-6">
                 <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-xl font-semibold text-gray-900">Ürünler</h2>
+                  <h2 className="text-lg sm:text-xl font-semibold text-gray-900">Ürünler</h2>
                   <button
                     onClick={clearCart}
-                    className="text-red-600 hover:text-red-700 font-medium text-sm"
+                    className="text-red-600 hover:text-red-700 font-medium text-xs sm:text-sm"
                   >
                     Sepeti Temizle
                   </button>
                 </div>
 
-                <div className="space-y-6">
+                <div className="space-y-4 sm:space-y-6">
                   {items.map((item) => (
-                    <div key={item.id} className="flex items-center space-x-4 p-4 border border-gray-200 rounded-lg">
-                      {/* Product Image */}
-                      <div className="relative w-20 h-20 flex-shrink-0">
-                        <Image
-                          src={item.product.image_url || '/Model1/Adriatic/m1a1.webp'}
-                          alt={item.product.name}
-                          fill
-                          className="object-cover rounded-md"
-                        />
-                      </div>
+                    <div key={item.id} className="flex flex-col sm:flex-row sm:items-center space-y-4 sm:space-y-0 sm:space-x-4 p-3 sm:p-4 border border-gray-200 rounded-lg">
+                      {/* Product Image & Details */}
+                      <div className="flex items-center space-x-4 flex-1">
+                        <div className="relative w-16 h-16 sm:w-20 sm:h-20 flex-shrink-0">
+                          <Image
+                            src={item.product.image_url || '/Model1/Adriatic/m1a1.webp'}
+                            alt={item.product.name}
+                            fill
+                            className="object-cover rounded-md"
+                          />
+                        </div>
 
-                      {/* Product Details */}
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-medium text-gray-900 truncate">
-                          {item.product.name}
-                        </h3>
-                        <p className="text-sm text-gray-600 mt-1">
-                          {item.product.description}
-                        </p>
-                        <div className="flex items-center mt-2 space-x-4">
-                          <span className="text-lg font-semibold text-gray-900">
-                            {formatPrice(item.product.price)}
-                          </span>
-                          {item.product.old_price && (
-                            <span className="text-sm text-gray-500 line-through">
-                              {formatPrice(item.product.old_price)}
+                        {/* Product Details */}
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-medium text-gray-900 truncate text-sm sm:text-base">
+                            {item.product.name}
+                          </h3>
+                          <p className="text-xs sm:text-sm text-gray-600 mt-1 hidden sm:block">
+                            {item.product.description}
+                          </p>
+                          <div className="flex items-center mt-2 space-x-4">
+                            <span className="text-base sm:text-lg font-semibold text-gray-900">
+                              {formatPrice(item.product.price)}
                             </span>
-                          )}
+                            {item.product.old_price && (
+                              <span className="text-xs sm:text-sm text-gray-500 line-through">
+                                {formatPrice(item.product.old_price)}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
 
-                      {/* Quantity Controls */}
-                      <div className="flex items-center space-x-3">
-                        <button
-                          onClick={() => handleQuantityChange(item.product.id, item.quantity - 1)}
-                          className="p-1 rounded-md hover:bg-gray-100 transition-colors"
-                        >
-                          <Minus className="w-4 h-4 text-gray-600" />
-                        </button>
-                        <span className="w-8 text-center font-medium text-gray-900">
-                          {item.quantity}
-                        </span>
-                        <button
-                          onClick={() => handleQuantityChange(item.product.id, item.quantity + 1)}
-                          className="p-1 rounded-md hover:bg-gray-100 transition-colors"
-                        >
-                          <Plus className="w-4 h-4 text-gray-600" />
-                        </button>
-                      </div>
-
-                      {/* Item Total */}
-                      <div className="text-right">
-                        <div className="font-semibold text-gray-900">
-                          {formatPrice(item.product.price * item.quantity)}
+                      {/* Quantity Controls & Actions */}
+                      <div className="flex items-center justify-between sm:justify-start sm:space-x-6">
+                        {/* Quantity Controls */}
+                        <div className="flex items-center space-x-3">
+                          <button
+                            onClick={() => handleQuantityChange(item.product.id, item.quantity - 1)}
+                            className="p-2 rounded-md hover:bg-gray-100 transition-colors"
+                          >
+                            <Minus className="w-4 h-4 text-gray-600" />
+                          </button>
+                          <span className="w-8 text-center font-medium text-gray-900">
+                            {item.quantity}
+                          </span>
+                          <button
+                            onClick={() => handleQuantityChange(item.product.id, item.quantity + 1)}
+                            className="p-2 rounded-md hover:bg-gray-100 transition-colors"
+                          >
+                            <Plus className="w-4 h-4 text-gray-600" />
+                          </button>
                         </div>
-                        <button
-                          onClick={() => removeFromCart(item.product.id)}
-                          className="text-red-600 hover:text-red-700 text-sm mt-1 flex items-center"
-                        >
-                          <Trash2 className="w-4 h-4 mr-1" />
-                          Kaldır
-                        </button>
+
+                        {/* Item Total & Remove */}
+                        <div className="text-right">
+                          <div className="font-semibold text-gray-900 text-sm sm:text-base">
+                            {formatPrice(item.product.price * item.quantity)}
+                          </div>
+                          <button
+                            onClick={() => removeFromCart(item.product.id)}
+                            className="text-red-600 hover:text-red-700 text-xs sm:text-sm mt-1 flex items-center"
+                          >
+                            <Trash2 className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
+                            Kaldır
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -317,34 +322,34 @@ export default function CartPage() {
           </div>
 
           {/* Order Summary */}
-          <div className="lg:col-span-4 mt-8 lg:mt-0">
-            <div className="bg-white rounded-lg shadow-sm p-6 sticky top-8">
-              <h2 className="text-xl font-semibold text-gray-900 mb-6">Sipariş Özeti</h2>
+          <div className="lg:col-span-4 mt-6 sm:mt-8 lg:mt-0">
+            <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6 lg:sticky lg:top-8">
+              <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-4 sm:mb-6">Sipariş Özeti</h2>
               
-              <div className="space-y-4">
+              <div className="space-y-3 sm:space-y-4">
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Ara Toplam</span>
-                  <span className="font-medium text-gray-900">{formatPrice(getSubtotal())}</span>
+                  <span className="text-gray-600 text-sm sm:text-base">Ara Toplam</span>
+                  <span className="font-medium text-gray-900 text-sm sm:text-base">{formatPrice(getSubtotal())}</span>
                 </div>
                 
                 <div className="flex justify-between">
-                  <span className="text-gray-600">KDV (%10)</span>
-                  <span className="font-medium text-gray-900">{formatPrice(getVAT())}</span>
+                  <span className="text-gray-600 text-sm sm:text-base">KDV (%10)</span>
+                  <span className="font-medium text-gray-900 text-sm sm:text-base">{formatPrice(getVAT())}</span>
                 </div>
                 
                 <div className="border-t pt-4">
                   <div className="flex justify-between">
-                    <span className="text-lg font-semibold text-gray-900">Toplam</span>
-                    <span className="text-lg font-bold text-gray-900">{formatPrice(getTotal())}</span>
+                    <span className="text-base sm:text-lg font-semibold text-gray-900">Toplam</span>
+                    <span className="text-base sm:text-lg font-bold text-gray-900">{formatPrice(getTotal())}</span>
                   </div>
                 </div>
               </div>
 
-              <div className="mt-8 space-y-4">
+              <div className="mt-6 sm:mt-8 space-y-3 sm:space-y-4">
                 <button
                   onClick={handleCheckout}
                   disabled={isCheckingOut}
-                  className="w-full bg-amber-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-amber-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                  className="w-full bg-amber-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-amber-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center text-sm sm:text-base"
                 >
                   {isCheckingOut ? (
                     <>
@@ -361,7 +366,7 @@ export default function CartPage() {
                 
                 <Link
                   href="/products"
-                  className="w-full bg-gray-100 text-gray-700 py-3 px-4 rounded-lg font-medium hover:bg-gray-200 transition-colors flex items-center justify-center"
+                  className="w-full bg-gray-100 text-gray-700 py-3 px-4 rounded-lg font-medium hover:bg-gray-200 transition-colors flex items-center justify-center text-sm sm:text-base"
                 >
                   <ArrowLeft className="w-5 h-5 mr-2" />
                   Alışverişe Devam Et
@@ -370,7 +375,7 @@ export default function CartPage() {
 
               {/* Trust Signals */}
               <div className="mt-6 pt-6 border-t">
-                <div className="text-sm text-gray-600 space-y-2">
+                <div className="text-xs sm:text-sm text-gray-600 space-y-2">
                   <div className="flex items-center">
                     <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
                     Güvenli ödeme

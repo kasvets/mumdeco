@@ -6,6 +6,7 @@ import ProductGrid from './ProductGrid';
 import FilterSidebar from './FilterSidebar';
 import { supabase } from '@/lib/supabase-client';
 import { Database } from '@/lib/supabase';
+import { Filter, LayoutGrid, List } from 'lucide-react';
 
 type Product = Database['public']['Tables']['products']['Row'];
 
@@ -17,10 +18,11 @@ interface ProductFilters {
   onSale: boolean;
 }
 
-const ProductsContent = memo(function ProductsContent() {
+export default function ProductsContent() {
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [showFilters, setShowFilters] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const searchParams = useSearchParams();
   
@@ -33,7 +35,7 @@ const ProductsContent = memo(function ProductsContent() {
   });
   
   const [filters, setFilters] = useState<ProductFilters>({
-    category: searchParams.get('category') || '',
+    category: '',
     priceRange: [0, 1000],
     sortBy: 'featured',
     inStock: false,
@@ -131,21 +133,100 @@ const ProductsContent = memo(function ProductsContent() {
     );
   }
 
+  const filteredProducts = products.filter(product => {
+    const matchesCategory = filters.category ? product.category.toLowerCase().includes(filters.category.toLowerCase()) : true;
+    const matchesPrice = product.price >= filters.priceRange[0] && product.price <= filters.priceRange[1];
+    const matchesSortBy = true; // Placeholder for sort logic
+    const matchesInStock = filters.inStock ? product.in_stock : true;
+    const matchesOnSale = filters.onSale ? product.is_new : true; // Using is_new instead of on_sale
+
+    return matchesCategory && matchesPrice && matchesSortBy && matchesInStock && matchesOnSale;
+  });
+
+  const toggleFilters = () => {
+    setShowFilters(!showFilters);
+  };
+
+  const closeFilters = () => {
+    setShowFilters(false);
+  };
+
   return (
-    <div className="flex flex-col lg:flex-row gap-4 lg:gap-6">
-      <FilterSidebar
-        filters={filters}
-        onFiltersChange={setFilters}
-        onClose={() => setSidebarOpen(false)}
-        productsCount={products.length}
-      />
-      <ProductGrid
-        products={products}
-        onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
-        sidebarOpen={sidebarOpen}
-      />
+    <div className="container mx-auto px-4 py-8">
+      <div className="flex flex-col lg:flex-row gap-6">
+        {/* Mobile Filter Toggle */}
+        <div className="lg:hidden">
+          <button
+            onClick={toggleFilters}
+            className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-white border-2 border-gray-200 rounded-xl hover:border-primary/30 hover:bg-primary/5 transition-all duration-200"
+          >
+            <Filter className="w-5 h-5 text-gray-600" />
+            <span className="font-medium text-gray-700">Filtreler</span>
+            <div className="ml-auto bg-primary/10 text-primary text-xs px-2 py-1 rounded-full">
+              {filteredProducts.length}
+            </div>
+          </button>
+        </div>
+
+        {/* Filter Sidebar */}
+        <div className={`
+          lg:block lg:w-auto
+          ${showFilters ? 'block' : 'hidden'}
+        `}>
+          <FilterSidebar 
+            filters={filters} 
+            onFiltersChange={setFilters}
+            onClose={closeFilters}
+            productsCount={filteredProducts.length}
+          />
+        </div>
+
+        {/* Main Content */}
+        <div className="flex-1 min-w-0">
+          {/* Toolbar */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
+                Ürünler
+              </h1>
+              <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
+                {filteredProducts.length} ürün
+              </span>
+            </div>
+            
+            {/* Desktop Actions */}
+            <div className="hidden sm:flex items-center gap-3">
+              <div className="flex items-center bg-white border border-gray-200 rounded-lg p-1">
+                <button
+                  onClick={() => setViewMode('grid')}
+                  className={`p-2 rounded-md transition-colors ${
+                    viewMode === 'grid' 
+                      ? 'bg-primary text-white' 
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  <LayoutGrid className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setViewMode('list')}
+                  className={`p-2 rounded-md transition-colors ${
+                    viewMode === 'list' 
+                      ? 'bg-primary text-white' 
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  <List className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Products Grid */}
+          <ProductGrid 
+            products={filteredProducts}
+          />
+        </div>
+      </div>
     </div>
   );
-});
-
-export default ProductsContent; 
+} 

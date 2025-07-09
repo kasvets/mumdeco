@@ -22,15 +22,25 @@
   h1, h2, h3, h4, h5, h6 {
     @apply font-serif;
   }
+
+  /* Improved mobile touch targets */
+  button, input, select, textarea {
+    @apply touch-manipulation;
+  }
+
+  /* Better mobile font sizes */
+  html {
+    @apply text-sm sm:text-base;
+  }
 }
 
 @layer components {
   .btn-primary {
-    @apply bg-black hover:bg-gray-900 text-white px-8 py-4 rounded-full font-medium transition-all duration-300 hover:shadow-lg transform hover:-translate-y-0.5;
+    @apply bg-black hover:bg-gray-900 text-white px-6 py-3 sm:px-8 sm:py-4 rounded-full font-medium transition-all duration-300 hover:shadow-lg transform hover:-translate-y-0.5 text-sm sm:text-base min-h-[44px] active:scale-95;
   }
   
   .btn-secondary {
-    @apply bg-white hover:bg-gray-50 text-primary border border-primary px-6 py-3 rounded-none font-medium transition-colors;
+    @apply bg-white hover:bg-gray-50 text-primary border border-primary px-4 py-2 sm:px-6 sm:py-3 rounded-none font-medium transition-colors text-sm sm:text-base min-h-[44px] active:scale-95;
   }
 
   .container {
@@ -73,17 +83,47 @@
       transform: translateY(0);
     }
   }
+
+  /* Mobile-optimized touch targets */
+  .touch-target {
+    @apply min-h-[44px] min-w-[44px] flex items-center justify-center;
+  }
+
+  /* Improved mobile typography */
+  .text-responsive {
+    @apply text-sm sm:text-base lg:text-lg;
+  }
+
+  .text-responsive-sm {
+    @apply text-xs sm:text-sm lg:text-base;
+  }
+
+  .text-responsive-lg {
+    @apply text-base sm:text-lg lg:text-xl;
+  }
+
+  .text-responsive-xl {
+    @apply text-lg sm:text-xl lg:text-2xl;
+  }
 }
 
-/* Swiper navigation styles */
+/* Swiper navigation styles - Mobile optimized */
 .swiper-button-next,
 .swiper-button-prev {
   color: white !important;
   background: rgba(0, 0, 0, 0.3);
-  width: 44px !important;
-  height: 44px !important;
+  width: 36px !important;
+  height: 36px !important;
   border-radius: 50%;
   transition: background-color 0.3s ease;
+}
+
+@media (min-width: 640px) {
+  .swiper-button-next,
+  .swiper-button-prev {
+    width: 44px !important;
+    height: 44px !important;
+  }
 }
 
 .swiper-button-next:hover,
@@ -93,6 +133,69 @@
 
 .swiper-button-next::after,
 .swiper-button-prev::after {
-  font-size: 20px !important;
+  font-size: 16px !important;
+}
+
+@media (min-width: 640px) {
+  .swiper-button-next::after,
+  .swiper-button-prev::after {
+    font-size: 20px !important;
+  }
+}
+
+/* Mobile-first responsive utilities */
+@media (max-width: 640px) {
+  .mobile-padding {
+    @apply px-4 py-3;
+  }
+
+  .mobile-text {
+    @apply text-sm;
+  }
+
+  .mobile-spacing {
+    @apply space-y-3;
+  }
+
+  /* Improved mobile form elements */
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="search"],
+  textarea,
+  select {
+    @apply text-base; /* Prevents zoom on iOS */
+    min-height: 44px;
+  }
+}
+
+/* Better mobile scroll behavior */
+@media (max-width: 1024px) {
+  .mobile-scroll {
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+  }
+}
+
+/* Improved mobile focus states */
+@media (max-width: 640px) {
+  button:focus,
+  input:focus,
+  select:focus,
+  textarea:focus {
+    @apply outline-none ring-2 ring-gray-400 ring-offset-2;
+  }
+}
+
+/* Mobile Sticky Buttons Safe Area */
+.mobile-sticky-buttons {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Ensure sticky buttons don't overlap with content */
+@supports (padding: env(safe-area-inset-bottom)) {
+  .mobile-sticky-buttons {
+    padding-bottom: calc(1rem + env(safe-area-inset-bottom));
+  }
 }
 

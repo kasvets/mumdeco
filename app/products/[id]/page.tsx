@@ -199,10 +199,10 @@ export default function ProductDetailPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pt-[220px] md:pt-[240px]">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="min-h-screen bg-gray-50 pt-[140px] sm:pt-[160px] md:pt-[180px] lg:pt-[200px] pb-20 sm:pb-0">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         {/* Breadcrumb */}
-        <nav className="flex items-center space-x-2 text-sm text-gray-500 mb-8">
+        <nav className="flex items-center space-x-2 text-sm text-gray-500 mb-4 sm:mb-6 md:mb-8">
           <button onClick={() => router.push('/')} className="hover:text-amber-600">
             Anasayfa
           </button>
@@ -223,9 +223,9 @@ export default function ProductDetailPage() {
           </span>
         </nav>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8 lg:gap-12">
           {/* Left Side - Image Slider */}
-          <div className="space-y-4">
+          <div className="space-y-2 sm:space-y-4">
             {/* Main Image */}
             <div className="relative bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
               <div className="aspect-square relative">
@@ -300,10 +300,10 @@ export default function ProductDetailPage() {
           </div>
 
           {/* Right Side - Product Details */}
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             {/* Product Title */}
             <div>
-              <h1 className="text-3xl font-bold text-gray-900 mb-4">{product.name}</h1>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2 sm:mb-4">{product.name}</h1>
               <div className="inline-flex items-center space-x-2">
                 <span className="bg-amber-100 text-amber-800 text-sm px-3 py-1 rounded-full">
                   {categoryMap[product.category] || product.category}
@@ -364,7 +364,8 @@ export default function ProductDetailPage() {
                   </div>
                 </div>
 
-                <div className="flex space-x-4">
+                {/* Desktop Buttons */}
+                <div className="hidden sm:flex space-x-4">
                   <button 
                     onClick={handleAddToCart}
                     disabled={!product.in_stock || addingToCart}
@@ -433,6 +434,76 @@ export default function ProductDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Mobile Sticky Buttons */}
+      {product.in_stock && (
+        <div className="sm:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 z-50 mobile-sticky-buttons">
+          <div className="flex items-center gap-3">
+            {/* Quantity Controls */}
+            <div className="flex flex-col items-start min-w-0">
+              <div className="flex items-center bg-gray-100 rounded-lg p-1">
+                <button
+                  onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                  className="w-8 h-8 flex items-center justify-center text-gray-600 hover:text-gray-900 hover:bg-white rounded-md transition-colors"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+                  </svg>
+                </button>
+                <span className="px-3 py-1 text-sm font-semibold text-gray-900 min-w-[2rem] text-center">
+                  {quantity}
+                </span>
+                <button
+                  onClick={() => setQuantity(quantity + 1)}
+                  className="w-8 h-8 flex items-center justify-center text-gray-600 hover:text-gray-900 hover:bg-white rounded-md transition-colors"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                  </svg>
+                </button>
+              </div>
+              <div className="flex items-center gap-2 mt-1">
+                <span className="text-xs text-gray-500">Adet</span>
+                <span className="text-xs text-gray-400">•</span>
+                <span className="text-xs font-semibold text-gray-900">
+                  {new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(product.price * quantity)}
+                </span>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-2 flex-1">
+              <button 
+                onClick={handleAddToCart}
+                disabled={!product.in_stock || addingToCart}
+                className="flex-1 bg-amber-600 text-white py-3 px-4 rounded-lg hover:bg-amber-700 transition-colors flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed min-h-[48px]"
+              >
+                {addingToCart ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    <span className="text-sm font-medium">Ekleniyor...</span>
+                  </>
+                ) : (
+                  <>
+                    <ShoppingCartIcon className="h-4 w-4" />
+                    <span className="text-sm font-medium">Sepete Ekle</span>
+                  </>
+                )}
+              </button>
+              <button 
+                onClick={handleOrderNow}
+                disabled={!product.in_stock}
+                className="flex-1 bg-gray-900 text-white py-3 px-4 rounded-lg hover:bg-gray-800 transition-colors flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed min-h-[48px]"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-4 w-4">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5m11.356-1.993l1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 01-1.12-1.243l1.264-12A1.125 1.125 0 015.513 7.5h12.974c.576 0 1.059.435 1.119.007z" />
+                </svg>
+                <span className="text-sm font-medium">Sipariş Ver</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Cart Modal */}
       <CartModal

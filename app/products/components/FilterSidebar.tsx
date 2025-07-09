@@ -88,6 +88,29 @@ export default function FilterSidebar({
     fetchProducts();
   }, []);
 
+  // Close on escape key
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [onClose]);
+
+  // Prevent body scroll when mobile sidebar is open
+  useEffect(() => {
+    const isMobile = window.innerWidth < 1024;
+    if (isMobile) {
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = 'unset';
+      };
+    }
+  }, []);
+
   // Group products by category
   const productsByCategory = products.reduce((acc: Record<string, Product[]>, product) => {
     if (!acc[product.category]) {
@@ -139,293 +162,288 @@ export default function FilterSidebar({
   };
 
   return (
-    <div className="w-full lg:w-72 xl:w-80 lg:sticky lg:top-4 lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto h-full bg-white p-4 border-r border-gray-200 lg:border-r-0 lg:bg-white lg:rounded-xl lg:shadow-sm lg:border lg:border-gray-100">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-2">
-          <div className="p-1.5 bg-primary/10 rounded-lg">
-            <Filter className="w-4 h-4 text-primary" />
-          </div>
-          <h2 className="text-lg font-semibold text-gray-900">Filtreler</h2>
-        </div>
-        <button
-          onClick={onClose}
-          className="lg:hidden p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-        >
-          <X className="w-5 h-5" />
-        </button>
-      </div>
+    <>
+      {/* Mobile Overlay */}
+      <div 
+        className="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-40 transition-opacity duration-300"
+        onClick={onClose}
+      />
 
-      {/* Results Count */}
-      <div className="mb-6 p-3 bg-gradient-to-r from-primary/5 to-primary/10 rounded-lg border border-primary/20">
-        <div className="flex items-center gap-2">
-          <div className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse"></div>
-          <p className="text-sm text-gray-700">
-            <span className="font-semibold text-primary">{productsCount}</span> ürün bulundu
-          </p>
-        </div>
-      </div>
-
-      {/* Filters */}
-      <div className="space-y-4">
-        {/* Category Filter with Products */}
-        <div className="bg-gray-50/50 rounded-lg p-3 border border-gray-100">
-          <button
-            onClick={() => toggleSection('category')}
-            className="flex items-center justify-between w-full mb-2 p-2 hover:bg-white rounded-lg transition-colors"
-          >
-            <h3 className="text-base font-semibold text-gray-900 flex items-center gap-2">
-              <div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
-              Kategoriler ve Ürünler
-            </h3>
-            <div className={`p-1 rounded-full transition-transform duration-200 ${
-              expandedSections.category ? 'rotate-180' : ''
-            }`}>
-              <ChevronDown className="w-4 h-4 text-gray-500" />
+      {/* Filter Sidebar */}
+      <div className={`
+        fixed lg:static inset-y-0 left-0 z-50 lg:z-auto
+        w-80 lg:w-72 xl:w-80 
+        bg-white 
+        transform transition-transform duration-300 ease-in-out
+        lg:transform-none lg:transition-none
+        lg:sticky lg:top-4 lg:max-h-[calc(100vh-6rem)] 
+        overflow-y-auto lg:overflow-y-auto
+        lg:rounded-xl lg:shadow-sm lg:border lg:border-gray-100
+        shadow-2xl lg:shadow-sm
+      `}>
+        <div className="h-full p-4">
+          {/* Mobile Header */}
+          <div className="flex items-center justify-between mb-6 lg:mb-4">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 bg-primary/10 rounded-lg">
+                <Filter className="w-4 h-4 text-primary" />
+              </div>
+              <h2 className="text-lg lg:text-base font-semibold text-gray-900">Filtreler</h2>
             </div>
-          </button>
-          
-          {expandedSections.category && (
-            <div className="space-y-2 animate-in slide-in-from-top-1 duration-200">
-              {/* All Products Option */}
-              <label className="flex items-center cursor-pointer p-2 rounded-lg hover:bg-white transition-all duration-200 group">
-                <input
-                  type="radio"
-                  name="category"
-                  value="all"
-                  checked={!filters.category}
-                  onChange={() => updateFilters({ category: '' })}
-                  className="mr-2 w-3.5 h-3.5 text-primary focus:ring-primary focus:ring-2 transition-all"
-                />
-                <span className="text-sm text-gray-700 group-hover:text-gray-900 font-medium transition-colors">
-                  Tüm Ürünler
-                </span>
-              </label>
+            <button
+              onClick={onClose}
+              className="lg:hidden p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
 
-              {/* Category Groups with Products */}
-              {!loading && categories.slice(1).map(category => {
-                const categoryProducts = productsByCategory[category.id] || [];
+          {/* Results Count */}
+          <div className="mb-6 lg:mb-4 p-3 bg-gradient-to-r from-primary/5 to-primary/10 rounded-lg border border-primary/20">
+            <div className="flex items-center gap-2">
+              <div className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse"></div>
+              <p className="text-sm text-gray-700">
+                <span className="font-semibold text-primary">{productsCount}</span> ürün bulundu
+              </p>
+            </div>
+          </div>
 
-                return (
-                  <div key={category.id} className="border border-gray-200 rounded-lg overflow-hidden">
-                    {/* Category Header */}
-                    <div className="bg-white p-2">
-                      <div className="flex items-center justify-between">
-                        <label className="flex items-center cursor-pointer group flex-1">
+          {/* Mobile Quick Actions */}
+          <div className="lg:hidden mb-6 flex gap-2">
+            <button
+              onClick={clearFilters}
+              className="flex-1 py-2 px-3 text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+            >
+              Temizle
+            </button>
+            <button
+              onClick={onClose}
+              className="flex-1 py-2 px-3 text-sm font-medium text-white bg-primary hover:bg-primary-dark rounded-lg transition-colors"
+            >
+              Uygula
+            </button>
+          </div>
+
+          {/* Filters */}
+          <div className="space-y-4">
+            {/* Category Filter with Products */}
+            <div className="bg-gray-50/50 rounded-lg p-3 border border-gray-100">
+              <button
+                onClick={() => toggleSection('category')}
+                className="flex items-center justify-between w-full mb-2 p-2 hover:bg-white rounded-lg transition-colors"
+              >
+                <h3 className="text-base font-semibold text-gray-900 flex items-center gap-2">
+                  <div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
+                  Kategoriler
+                </h3>
+                <div className={`p-1 rounded-full transition-transform duration-200 ${
+                  expandedSections.category ? 'rotate-180' : ''
+                }`}>
+                  <ChevronDown className="w-4 h-4 text-gray-500" />
+                </div>
+              </button>
+              
+              {expandedSections.category && (
+                <div className="space-y-2 animate-in slide-in-from-top-1 duration-200">
+                  {/* All Products Option */}
+                  <label className="flex items-center cursor-pointer p-2 rounded-lg hover:bg-white transition-all duration-200 group">
+                    <input
+                      type="radio"
+                      name="category"
+                      value="all"
+                      checked={!filters.category}
+                      onChange={() => updateFilters({ category: '' })}
+                      className="mr-3 w-4 h-4 text-primary focus:ring-primary focus:ring-2 transition-all"
+                    />
+                    <span className="text-sm text-gray-700 group-hover:text-gray-900 font-medium transition-colors">
+                      Tüm Ürünler
+                    </span>
+                    <span className="ml-auto text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
+                      {products.length}
+                    </span>
+                  </label>
+
+                  {/* Categories */}
+                  {categories.slice(1).map((category) => {
+                    const categoryProducts = productsByCategory[category.id] || [];
+                    return (
+                      <div key={category.id} className="space-y-1">
+                        <label className="flex items-center cursor-pointer p-2 rounded-lg hover:bg-white transition-all duration-200 group">
                           <input
                             type="radio"
                             name="category"
                             value={category.id}
                             checked={filters.category === category.id}
                             onChange={() => updateFilters({ category: category.id })}
-                            className="mr-2 w-3.5 h-3.5 text-primary focus:ring-primary focus:ring-2 transition-all"
+                            className="mr-3 w-4 h-4 text-primary focus:ring-primary focus:ring-2 transition-all"
                           />
                           <span className="text-sm text-gray-700 group-hover:text-gray-900 font-medium transition-colors">
                             {category.label}
                           </span>
-                          <span className="ml-2 text-xs text-gray-500">
-                            ({categoryProducts.length})
+                          <span className="ml-auto text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
+                            {categoryProducts.length}
                           </span>
                         </label>
-                        <button
-                          onClick={() => toggleCategory(category.id)}
-                          className="p-1 hover:bg-gray-100 rounded transition-colors"
-                        >
-                          {expandedCategories[category.id] ? (
-                            <ChevronUp className="w-4 h-4 text-gray-500" />
-                          ) : (
-                            <ChevronDown className="w-4 h-4 text-gray-500" />
-                          )}
-                        </button>
                       </div>
-                    </div>
-
-                    {/* Products List */}
-                    {expandedCategories[category.id] && (
-                      <div className="bg-gray-50 p-2 space-y-1">
-                        {categoryProducts.length > 0 ? (
-                          categoryProducts.map(product => (
-                            <button
-                              key={product.id}
-                              onClick={() => handleProductClick(product.id)}
-                              className="w-full text-left p-2 bg-white rounded text-sm hover:bg-primary/5 hover:text-primary transition-colors cursor-pointer"
-                            >
-                              <div className="text-gray-800 font-medium hover:text-primary transition-colors">
-                                {product.name}
-                              </div>
-                            </button>
-                          ))
-                        ) : (
-                          <div className="p-2 text-center text-gray-500 text-sm italic">
-                            Bu kategoride henüz ürün yok
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-
-              {loading && (
-                <div className="flex items-center justify-center p-4">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
-                  <span className="ml-2 text-sm text-gray-500">Ürünler yükleniyor...</span>
+                    );
+                  })}
                 </div>
               )}
             </div>
-          )}
-        </div>
 
-        {/* Price Range Filter */}
-        <div className="bg-gray-50/50 rounded-lg p-3 border border-gray-100">
-          <button
-            onClick={() => toggleSection('price')}
-            className="flex items-center justify-between w-full mb-2 p-2 hover:bg-white rounded-lg transition-colors"
-          >
-            <h3 className="text-base font-semibold text-gray-900 flex items-center gap-2">
-              <div className="w-1.5 h-1.5 bg-green-500 rounded-full"></div>
-              Fiyat Aralığı
-            </h3>
-            <div className={`p-1 rounded-full transition-transform duration-200 ${
-              expandedSections.price ? 'rotate-180' : ''
-            }`}>
-              <ChevronDown className="w-4 h-4 text-gray-500" />
-            </div>
-          </button>
-          
-          {expandedSections.price && (
-            <div className="space-y-3 animate-in slide-in-from-top-1 duration-200">
-              <div className="flex items-center gap-2">
-                <div className="flex-1">
-                  <input
-                    type="number"
-                    value={filters.priceRange[0]}
-                    onChange={(e) => updateFilters({ 
-                      priceRange: [Number(e.target.value), filters.priceRange[1]] 
-                    })}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all bg-white text-sm"
-                    placeholder="Min"
-                  />
+            {/* Price Range Filter */}
+            <div className="bg-gray-50/50 rounded-lg p-3 border border-gray-100">
+              <button
+                onClick={() => toggleSection('price')}
+                className="flex items-center justify-between w-full mb-2 p-2 hover:bg-white rounded-lg transition-colors"
+              >
+                <h3 className="text-base font-semibold text-gray-900 flex items-center gap-2">
+                  <div className="w-1.5 h-1.5 bg-green-500 rounded-full"></div>
+                  Fiyat Aralığı
+                </h3>
+                <div className={`p-1 rounded-full transition-transform duration-200 ${
+                  expandedSections.price ? 'rotate-180' : ''
+                }`}>
+                  <ChevronDown className="w-4 h-4 text-gray-500" />
                 </div>
-                <div className="w-2 h-0.5 bg-gray-300 rounded-full"></div>
-                <div className="flex-1">
-                  <input
-                    type="number"
-                    value={filters.priceRange[1]}
-                    onChange={(e) => updateFilters({ 
-                      priceRange: [filters.priceRange[0], Number(e.target.value)] 
-                    })}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all bg-white text-sm"
-                    placeholder="Max"
-                  />
-                </div>
-              </div>
-              <div className="flex items-center justify-center">
-                <div className="px-3 py-1.5 bg-primary/10 text-primary rounded-lg font-medium text-sm">
-                  {formatPrice(filters.priceRange[0])} - {formatPrice(filters.priceRange[1])}
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Sort Options */}
-        <div className="bg-gray-50/50 rounded-lg p-3 border border-gray-100">
-          <button
-            onClick={() => toggleSection('sort')}
-            className="flex items-center justify-between w-full mb-2 p-2 hover:bg-white rounded-lg transition-colors"
-          >
-            <h3 className="text-base font-semibold text-gray-900 flex items-center gap-2">
-              <div className="w-1.5 h-1.5 bg-purple-500 rounded-full"></div>
-              Sıralama
-            </h3>
-            <div className={`p-1 rounded-full transition-transform duration-200 ${
-              expandedSections.sort ? 'rotate-180' : ''
-            }`}>
-              <ChevronDown className="w-4 h-4 text-gray-500" />
-            </div>
-          </button>
-          
-          {expandedSections.sort && (
-            <div className="space-y-1 animate-in slide-in-from-top-1 duration-200">
-              {sortOptions.map(option => (
-                <label 
-                  key={option.value} 
-                  className="flex items-center cursor-pointer p-2 rounded-lg hover:bg-white transition-all duration-200 group"
-                >
-                  <input
-                    type="radio"
-                    name="sort"
-                    value={option.value}
-                    checked={filters.sortBy === option.value}
-                    onChange={(e) => updateFilters({ 
-                      sortBy: e.target.value as ProductFilters['sortBy']
-                    })}
-                    className="mr-2 w-3.5 h-3.5 text-primary focus:ring-primary focus:ring-2 transition-all"
-                  />
-                  <span className="text-sm text-gray-700 group-hover:text-gray-900 font-medium transition-colors">
-                    {option.label}
-                  </span>
-                </label>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Other Filters */}
-        <div className="bg-gray-50/50 rounded-lg p-3 border border-gray-100">
-          <button
-            onClick={() => toggleSection('other')}
-            className="flex items-center justify-between w-full mb-2 p-2 hover:bg-white rounded-lg transition-colors"
-          >
-            <h3 className="text-base font-semibold text-gray-900 flex items-center gap-2">
-              <div className="w-1.5 h-1.5 bg-orange-500 rounded-full"></div>
-              Diğer Filtreler
-            </h3>
-            <div className={`p-1 rounded-full transition-transform duration-200 ${
-              expandedSections.other ? 'rotate-180' : ''
-            }`}>
-              <ChevronDown className="w-4 h-4 text-gray-500" />
-            </div>
-          </button>
-          
-          {expandedSections.other && (
-            <div className="space-y-2 animate-in slide-in-from-top-1 duration-200">
-              <label className="flex items-center cursor-pointer p-2 rounded-lg hover:bg-white transition-all duration-200 group">
-                <input
-                  type="checkbox"
-                  checked={filters.inStock}
-                  onChange={(e) => updateFilters({ inStock: e.target.checked })}
-                  className="mr-2 w-3.5 h-3.5 text-primary focus:ring-primary focus:ring-2 rounded transition-all"
-                />
-                <span className="text-sm text-gray-700 group-hover:text-gray-900 font-medium transition-colors">
-                  Sadece Stokta Olanlar
-                </span>
-              </label>
+              </button>
               
-              <label className="flex items-center cursor-pointer p-2 rounded-lg hover:bg-white transition-all duration-200 group">
-                <input
-                  type="checkbox"
-                  checked={filters.onSale}
-                  onChange={(e) => updateFilters({ onSale: e.target.checked })}
-                  className="mr-2 w-3.5 h-3.5 text-primary focus:ring-primary focus:ring-2 rounded transition-all"
-                />
-                <span className="text-sm text-gray-700 group-hover:text-gray-900 font-medium transition-colors">
-                  İndirimli Ürünler
-                </span>
-              </label>
+              {expandedSections.price && (
+                <div className="space-y-3 animate-in slide-in-from-top-1 duration-200">
+                  <div className="px-2">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-sm text-gray-600">
+                        {formatPrice(filters.priceRange[0])}
+                      </span>
+                      <span className="text-sm text-gray-600">
+                        {formatPrice(filters.priceRange[1])}
+                      </span>
+                    </div>
+                    
+                    {/* Price Range Slider */}
+                    <div className="relative">
+                      <input
+                        type="range"
+                        min="0"
+                        max="1000"
+                        value={filters.priceRange[0]}
+                        onChange={(e) => updateFilters({ 
+                          priceRange: [parseInt(e.target.value), filters.priceRange[1]] 
+                        })}
+                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                      />
+                      <input
+                        type="range"
+                        min="0"
+                        max="1000"
+                        value={filters.priceRange[1]}
+                        onChange={(e) => updateFilters({ 
+                          priceRange: [filters.priceRange[0], parseInt(e.target.value)] 
+                        })}
+                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer absolute top-0"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
-          )}
-        </div>
 
-        {/* Clear Filters Button */}
-        <button
-          onClick={clearFilters}
-          className="w-full py-2.5 px-4 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors"
-        >
-          Filtreleri Temizle
-        </button>
+            {/* Sort Options */}
+            <div className="bg-gray-50/50 rounded-lg p-3 border border-gray-100">
+              <button
+                onClick={() => toggleSection('sort')}
+                className="flex items-center justify-between w-full mb-2 p-2 hover:bg-white rounded-lg transition-colors"
+              >
+                <h3 className="text-base font-semibold text-gray-900 flex items-center gap-2">
+                  <div className="w-1.5 h-1.5 bg-purple-500 rounded-full"></div>
+                  Sıralama
+                </h3>
+                <div className={`p-1 rounded-full transition-transform duration-200 ${
+                  expandedSections.sort ? 'rotate-180' : ''
+                }`}>
+                  <ChevronDown className="w-4 h-4 text-gray-500" />
+                </div>
+              </button>
+              
+              {expandedSections.sort && (
+                <div className="space-y-2 animate-in slide-in-from-top-1 duration-200">
+                  {sortOptions.map((option) => (
+                    <label key={option.value} className="flex items-center cursor-pointer p-2 rounded-lg hover:bg-white transition-all duration-200 group">
+                      <input
+                        type="radio"
+                        name="sort"
+                        value={option.value}
+                        checked={filters.sortBy === option.value}
+                        onChange={() => updateFilters({ sortBy: option.value as any })}
+                        className="mr-3 w-4 h-4 text-primary focus:ring-primary focus:ring-2 transition-all"
+                      />
+                      <span className="text-sm text-gray-700 group-hover:text-gray-900 transition-colors">
+                        {option.label}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Other Filters */}
+            <div className="bg-gray-50/50 rounded-lg p-3 border border-gray-100">
+              <button
+                onClick={() => toggleSection('other')}
+                className="flex items-center justify-between w-full mb-2 p-2 hover:bg-white rounded-lg transition-colors"
+              >
+                <h3 className="text-base font-semibold text-gray-900 flex items-center gap-2">
+                  <div className="w-1.5 h-1.5 bg-orange-500 rounded-full"></div>
+                  Diğer Filtreler
+                </h3>
+                <div className={`p-1 rounded-full transition-transform duration-200 ${
+                  expandedSections.other ? 'rotate-180' : ''
+                }`}>
+                  <ChevronDown className="w-4 h-4 text-gray-500" />
+                </div>
+              </button>
+              
+              {expandedSections.other && (
+                <div className="space-y-2 animate-in slide-in-from-top-1 duration-200">
+                  <label className="flex items-center cursor-pointer p-2 rounded-lg hover:bg-white transition-all duration-200 group">
+                    <input
+                      type="checkbox"
+                      checked={filters.inStock}
+                      onChange={(e) => updateFilters({ inStock: e.target.checked })}
+                      className="mr-3 w-4 h-4 text-primary focus:ring-primary focus:ring-2 rounded transition-all"
+                    />
+                    <span className="text-sm text-gray-700 group-hover:text-gray-900 transition-colors">
+                      Sadece Stokta Olanlar
+                    </span>
+                  </label>
+                  
+                  <label className="flex items-center cursor-pointer p-2 rounded-lg hover:bg-white transition-all duration-200 group">
+                    <input
+                      type="checkbox"
+                      checked={filters.onSale}
+                      onChange={(e) => updateFilters({ onSale: e.target.checked })}
+                      className="mr-3 w-4 h-4 text-primary focus:ring-primary focus:ring-2 rounded transition-all"
+                    />
+                    <span className="text-sm text-gray-700 group-hover:text-gray-900 transition-colors">
+                      İndirimli Ürünler
+                    </span>
+                  </label>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Desktop Clear Filters Button */}
+          <div className="hidden lg:block mt-6 pt-4 border-t border-gray-200">
+            <button
+              onClick={clearFilters}
+              className="w-full py-2 px-4 text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+            >
+              Filtreleri Temizle
+            </button>
+          </div>
+        </div>
       </div>
-    </div>
+    </>
   );
 } 
