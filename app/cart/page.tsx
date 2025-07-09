@@ -1,16 +1,51 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useCart } from '@/lib/cart-context';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Minus, Plus, Trash2, ShoppingBag, ArrowLeft, CreditCard } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { Minus, Plus, Trash2, ShoppingBag, ArrowLeft, CreditCard, X, User, Phone, MapPin, Mail } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
+import { User as AuthUser } from '@supabase/supabase-js';
+
+interface CustomerInfo {
+  name: string;
+  email: string;
+  phone: string;
+  address: string;
+}
 
 export default function CartPage() {
   const { items, updateQuantity, removeFromCart, clearCart, getSubtotal, getVAT, getTotal } = useCart();
-  const router = useRouter();
   const [isCheckingOut, setIsCheckingOut] = useState(false);
+  const [showCustomerModal, setShowCustomerModal] = useState(false);
+  const [customerInfo, setCustomerInfo] = useState<CustomerInfo>({
+    name: '',
+    email: '',
+    phone: '',
+    address: ''
+  });
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const getUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setUser(user);
+      
+      if (user) {
+        setCustomerInfo({
+          name: user.user_metadata?.full_name || '',
+          email: user.email || '',
+          phone: user.user_metadata?.phone || '',
+          address: user.user_metadata?.address || ''
+        });
+      }
+      setLoading(false);
+    };
+    
+    getUser();
+  }, []);
 
   const handleQuantityChange = (productId: number, newQuantity: number) => {
     if (newQuantity < 1) return;
@@ -18,15 +53,74 @@ export default function CartPage() {
   };
 
   const handleCheckout = async () => {
+    setShowCustomerModal(true);
+  };
+
+  const processPayment = async () => {
+    if (!customerInfo.name || !customerInfo.email || !customerInfo.phone || !customerInfo.address) {
+      alert('Lütfen tüm bilgileri eksiksiz doldurun.');
+      return;
+    }
+
     setIsCheckingOut(true);
-    // Simulate checkout process
-    await new Promise(resolve => setTimeout(resolve, 1000));
     
-    // Here you would typically integrate with a payment processor
-    // For now, we'll just show a success message
-    alert('Sipariş işleminiz başarıyla alındı! Teşekkür ederiz.');
-    clearCart();
-    router.push('/');
+    try {
+      // Sepet ürünlerini PayTR formatına çevir
+      const paymentItems = items.map(item => ({
+        product_id: item.product.id.toString(),
+        name: item.product.name,
+        price: item.product.price,
+        quantity: item.quantity
+      }));
+
+      const paymentData = {
+        items: paymentItems,
+        customer: {
+          name: customerInfo.name,
+          email: customerInfo.email,
+          phone: customerInfo.phone,
+          address: customerInfo.address
+        }
+      };
+
+      const response = await fetch('/api/paytr/create-payment', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(paymentData)
+      });
+
+      const result = await response.json();
+      
+      // Debug bilgisi
+      console.log('PayTR Response:', result);
+      console.log('Response status:', response.status);
+      console.log('Response success:', result.success);
+      console.log('Response data:', result.data);
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      if (result.success && result.data && result.data.iframeUrl) {
+        console.log('Opening PayTR iframe:', result.data.iframeUrl);
+        
+        // Mevcut sayfada PayTR iframe'ini aç
+        window.location.href = result.data.iframeUrl;
+        
+        // Modal'ı kapat
+        setShowCustomerModal(false);
+      } else {
+        console.error('PayTR Response Error:', result);
+        throw new Error(result.error || result.message || 'Ödeme işlemi başlatılamadı');
+      }
+    } catch (error) {
+      console.error('Ödeme hatası:', error);
+      alert(`Ödeme işlemi sırasında hata oluştu: ${error instanceof Error ? error.message : 'Bilinmeyen hata'}`);
+    } finally {
+      setIsCheckingOut(false);
+    }
   };
 
   const formatPrice = (price: number) => {
@@ -110,6 +204,19 @@ export default function CartPage() {
         
         {/* Bottom spacing */}
         <div className="h-16"></div>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 py-12 pt-44 md:pt-60">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-amber-500 mx-auto"></div>
+            <p className="mt-4 text-gray-600">Yükleniyor...</p>
+          </div>
+        </div>
       </div>
     );
   }
@@ -282,6 +389,135 @@ export default function CartPage() {
           </div>
         </div>
       </div>
+
+      {/* Customer Information Modal */}
+      {showCustomerModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-semibold text-gray-900">Müşteri Bilgileri</h2>
+                <button
+                  onClick={() => setShowCustomerModal(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              {!user && (
+                <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <p className="text-sm text-blue-700">
+                    <strong>Misafir Sipariş:</strong> Hesabınız yoksa da sipariş verebilirsiniz. 
+                    Sipariş takibi için e-posta adresinizi kaydedin.
+                  </p>
+                </div>
+              )}
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <User className="w-4 h-4 inline mr-1" />
+                    Ad Soyad *
+                  </label>
+                  <input
+                    type="text"
+                    value={customerInfo.name}
+                    onChange={(e) => setCustomerInfo({ ...customerInfo, name: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    placeholder="Adınızı ve soyadınızı girin"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <Mail className="w-4 h-4 inline mr-1" />
+                    E-posta Adresi *
+                  </label>
+                  <input
+                    type="email"
+                    value={customerInfo.email}
+                    onChange={(e) => setCustomerInfo({ ...customerInfo, email: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    placeholder="E-posta adresinizi girin"
+                    required
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Sipariş durumu bu e-posta adresine gönderilecektir.</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <Phone className="w-4 h-4 inline mr-1" />
+                    Telefon Numarası *
+                  </label>
+                  <input
+                    type="tel"
+                    value={customerInfo.phone}
+                    onChange={(e) => setCustomerInfo({ ...customerInfo, phone: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    placeholder="0532 123 45 67"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <MapPin className="w-4 h-4 inline mr-1" />
+                    Teslimat Adresi *
+                  </label>
+                  <textarea
+                    value={customerInfo.address}
+                    onChange={(e) => setCustomerInfo({ ...customerInfo, address: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    placeholder="Mahalle, sokak, kapı no, daire no gibi detayları eksiksiz yazın"
+                    rows={3}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="mt-6 pt-6 border-t">
+                <div className="bg-gray-50 p-4 rounded-lg mb-4">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-sm font-medium text-gray-700">Toplam Tutar:</span>
+                    <span className="text-lg font-bold text-gray-900">{formatPrice(getTotal())}</span>
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    {items.length} ürün • KDV dahil
+                  </div>
+                </div>
+
+                <div className="flex space-x-3">
+                  <button
+                    onClick={() => setShowCustomerModal(false)}
+                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                  >
+                    İptal
+                  </button>
+                  <button
+                    onClick={processPayment}
+                    disabled={isCheckingOut}
+                    className="flex-1 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                  >
+                    {isCheckingOut ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                        İşleniyor...
+                      </>
+                    ) : (
+                      <>
+                        <CreditCard className="w-4 h-4 mr-2" />
+                        Ödeme Yap
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 } 
