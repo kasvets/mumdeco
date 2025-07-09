@@ -18,9 +18,9 @@ export const PAYTR_CONFIG = {
   MERCHANT_SALT: process.env.PAYTR_MERCHANT_SALT || '',
   TEST_MODE: parseInt(process.env.PAYTR_TEST_MODE || '1'),
   DEBUG_MODE: parseInt(process.env.PAYTR_DEBUG_MODE || '1'),
-  SUCCESS_URL: process.env.PAYTR_SUCCESS_URL || `https://13b4b402f72b.ngrok.app/payment/success`,
-  FAIL_URL: process.env.PAYTR_FAIL_URL || `https://13b4b402f72b.ngrok.app/payment/failure`,
-  CALLBACK_URL: process.env.PAYTR_CALLBACK_URL || `https://13b4b402f72b.ngrok.app/api/paytr/callback`,
+  SUCCESS_URL: process.env.PAYTR_SUCCESS_URL || `https://www.mumdeco.com/payment/success`,
+  FAIL_URL: process.env.PAYTR_FAIL_URL || `https://www.mumdeco.com/payment/failure`,
+  CALLBACK_URL: process.env.PAYTR_CALLBACK_URL || `https://www.mumdeco.com/api/paytr/callback`,
   // PayTR Test Credentials (fallback)
   TEST_MERCHANT_ID: '594162',
   TEST_MERCHANT_KEY: 'd2BeXLTPQD6AxkJ',
