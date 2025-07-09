@@ -18,9 +18,49 @@ export default function NewProduct() {
   const [loading, setLoading] = useState(false);
   const [imageUploading, setImageUploading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-  const [previewUrls, setPreviewUrls] = useState<string[]>([]);
+  const [existingImages, setExistingImages] = useState<string[]>([]);
+  const [deletingImages, setDeletingImages] = useState<string[]>([]);
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const router = useRouter();
+
+  // Modal state
+  const [modal, setModal] = useState<{
+    isOpen: boolean;
+    type: 'success' | 'error' | 'warning' | 'info';
+    title: string;
+    message: string;
+    showPositiveImage?: boolean;
+  }>({
+    isOpen: false,
+    type: 'info',
+    title: '',
+    message: '',
+    showPositiveImage: false
+  });
+
+  // Confirmation modal state
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    onCancel: () => void;
+    confirmText?: string;
+    cancelText?: string;
+    isDangerous?: boolean;
+    showNegativeImage?: boolean;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+    onCancel: () => {},
+    confirmText: 'Evet',
+    cancelText: 'Hayır',
+    isDangerous: false,
+    showNegativeImage: false
+  });
 
   const [formData, setFormData] = useState({
     name: '',
@@ -42,14 +82,14 @@ export default function NewProduct() {
     try {
       // Eğer görsel upload işlemi devam ediyorsa bekle
       if (imageUploading) {
-        alert('Görsel yükleme işlemi devam ediyor, lütfen bekleyin...');
+        showModal('warning', 'Uyarı!', 'Görsel yükleme işlemi devam ediyor, lütfen bekleyin...');
         setLoading(false);
         return;
       }
 
       // Gerekli alanları kontrol et
       if (!formData.name || !formData.category || !formData.price) {
-        alert('Lütfen tüm gerekli alanları doldurun.');
+        showModal('warning', 'Uyarı!', 'Lütfen tüm gerekli alanları doldurun.');
         setLoading(false);
         return;
       }
@@ -75,18 +115,31 @@ export default function NewProduct() {
         throw new Error(result.error);
       }
 
-      alert('Ürün başarıyla eklendi!');
-      setSelectedFiles([]);
-      setPreviewUrls([]);
+      showModal('success', 'Başarılı!', 'Ürün başarıyla eklendi! Ürün listesine yönlendiriliyorsunuz...', true);
       
-      // Kısa bir gecikme ile redirect et
+      // State'leri temizle
+      setExistingImages([]);
+      setFormData({
+        name: '',
+        description: '',
+        price: 0,
+        old_price: null,
+        category: 'model-1',
+        image_url: '',
+        is_new: false,
+        in_stock: true,
+        rating: null,
+        reviews: 0
+      });
+      
+      // 2 saniye sonra yönlendir
       setTimeout(() => {
         router.push('/admin/products');
-      }, 1000);
+      }, 2000);
       
     } catch (error) {
       console.error('Ürün eklenirken hata:', error);
-      alert('Ürün eklenirken hata oluştu!');
+      showModal('error', 'Hata!', 'Ürün eklenirken bir hata oluştu. Lütfen tekrar deneyin.');
     } finally {
       setLoading(false);
     }
@@ -97,7 +150,7 @@ export default function NewProduct() {
     const imageFiles = fileArray.filter(file => file.type.startsWith('image/'));
     
     if (imageFiles.length === 0) {
-      alert('Lütfen sadece resim dosyalarını seçin!');
+      showModal('warning', 'Uyarı!', 'Lütfen sadece resim dosyalarını seçin!');
       return;
     }
 
@@ -105,28 +158,17 @@ export default function NewProduct() {
     const maxSize = 5 * 1024 * 1024;
     const oversizedFiles = imageFiles.filter(file => file.size > maxSize);
     if (oversizedFiles.length > 0) {
-      alert(`Şu dosyalar 5MB'dan büyük: ${oversizedFiles.map(f => f.name).join(', ')}`);
+      showModal('warning', 'Dosya Boyutu Uyarısı!', `Şu dosyalar 5MB'dan büyük: ${oversizedFiles.map(f => f.name).join(', ')}`);
       return;
     }
 
     setImageUploading(true);
-    setSelectedFiles(prev => [...prev, ...imageFiles]);
-    
-    // Preview URL'leri oluştur
-    imageFiles.forEach(file => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setPreviewUrls(prev => [...prev, e.target?.result as string]);
-      };
-      reader.readAsDataURL(file);
-    });
 
     try {
-      // İlk dosyayı API üzerinden yükle ve ana görsel olarak ayarla
-      if (imageFiles.length > 0) {
-        const firstFile = imageFiles[0];
+      // Tüm dosyaları API üzerinden yükle
+      const uploadPromises = imageFiles.map(async (file) => {
         const formData = new FormData();
-        formData.append('file', firstFile);
+        formData.append('file', file);
         formData.append('productId', 'new'); // For new products
 
         const response = await fetch('/api/admin/upload', {
@@ -134,15 +176,28 @@ export default function NewProduct() {
           body: formData
         });
 
-        if (response.ok) {
-          const result = await response.json();
-          if (result.url) {
-            setFormData(prev => ({ ...prev, image_url: result.url }));
-          }
-        } else {
+        if (!response.ok) {
           const errorData = await response.json();
           throw new Error(errorData.error || 'Upload failed');
         }
+
+        const result = await response.json();
+        return result.url;
+      });
+      
+      const uploadedUrls = await Promise.all(uploadPromises);
+      const successfulUploads = uploadedUrls.filter(url => url !== null);
+      
+      if (successfulUploads.length > 0) {
+        // İlk görseli ana görsel olarak ayarla (eğer henüz ana görsel yoksa)
+        if (!formData.image_url) {
+          setFormData(prev => ({ ...prev, image_url: successfulUploads[0] }));
+        }
+        
+        // Mevcut görselleri güncelle
+        setExistingImages(prev => [...prev, ...successfulUploads]);
+        
+        showModal('success', 'Başarılı!', `${successfulUploads.length} görsel başarıyla yüklendi ve depolandı!`, true);
       }
     } catch (error: any) {
       console.error('Görsel yükleme hatası:', error);
@@ -150,8 +205,7 @@ export default function NewProduct() {
       
       if (errorMessage.includes('bucket') || errorMessage.includes('not found')) {
         // Storage bucket hatası için özel mesaj
-        const bucketNotFoundAlert = `
-🚨 Storage Bucket Bulunamadı!
+        const bucketNotFoundMessage = `Storage Bucket bulunamadı!
 
 ÇÖZÜM:
 1. Supabase Dashboard'a gidin: https://supabase.com/dashboard
@@ -161,13 +215,12 @@ export default function NewProduct() {
 5. "Public bucket" seçeneğini işaretleyin ✅
 6. "Create bucket" butonuna tıklayın
 
-Detaylı rehber için STORAGE_SETUP.md dosyasını inceleyin.
-        `;
-        alert(bucketNotFoundAlert);
+Detaylı rehber için STORAGE_SETUP.md dosyasını inceleyin.`;
+        showModal('error', 'Storage Bucket Bulunamadı!', bucketNotFoundMessage);
       } else if (errorMessage.includes('permission') || errorMessage.includes('authorized')) {
-        alert('Yetki hatası! Storage bucket\'ının public olduğundan emin olun ve RLS policy\'lerini kontrol edin.');
+        showModal('error', 'Yetki Hatası!', 'Storage bucket\'ının public olduğundan emin olun ve RLS policy\'lerini kontrol edin.');
       } else {
-        alert(`Görsel yükleme hatası: ${errorMessage}`);
+        showModal('error', 'Yükleme Hatası!', `Görsel yükleme hatası: ${errorMessage}`);
       }
     } finally {
       setImageUploading(false);
@@ -178,6 +231,8 @@ Detaylı rehber için STORAGE_SETUP.md dosyasını inceleyin.
     const files = e.target.files;
     if (files) {
       handleFiles(files);
+      // Input'u temizle ki aynı dosyalar tekrar seçilebilsin
+      e.target.value = '';
     }
   };
 
@@ -201,16 +256,115 @@ Detaylı rehber için STORAGE_SETUP.md dosyasını inceleyin.
     }
   };
 
-  const removeFile = (index: number) => {
-    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
-    setPreviewUrls(prev => prev.filter((_, i) => i !== index));
+  const handleDeleteExistingImage = async (imageUrl: string) => {
+    const deleteAction = async () => {
+      setDeletingImages(prev => [...prev, imageUrl]);
+      await performDeleteImage(imageUrl);
+    };
+
+    showConfirmModal(
+      'Görseli Sil',
+      'Bu görseli silmek istediğinizden emin misiniz?',
+      deleteAction,
+      { 
+        confirmText: 'Sil', 
+        cancelText: 'İptal', 
+        isDangerous: true,
+        showNegativeImage: true
+      }
+    );
+  };
+
+  const performDeleteImage = async (imageUrl: string) => {
+    try {
+      // API üzerinden görseli sil
+      const response = await fetch(`/api/admin/images/delete`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ imageUrl })
+      });
+
+      if (response.ok) {
+        // Görseli listeden çıkar
+        setExistingImages(prev => prev.filter(url => url !== imageUrl));
+        
+        // Ana görselse formData'dan da çıkar
+        if (formData.image_url === imageUrl) {
+          // Başka görsel varsa ilkini ana görsel yap
+          const remainingImages = existingImages.filter(url => url !== imageUrl);
+          setFormData(prev => ({ ...prev, image_url: remainingImages[0] || '' }));
+        }
+        
+        showModal('success', 'Başarılı!', 'Görsel başarıyla silindi!', true);
+      } else {
+        throw new Error('Silme işlemi başarısız');
+      }
+    } catch (error) {
+      console.error('Görsel silme hatası:', error);
+      showModal('error', 'Hata!', 'Görsel silinirken bir hata oluştu.');
+    } finally {
+      setDeletingImages(prev => prev.filter(url => url !== imageUrl));
+    }
+  };
+
+  const setAsMainImage = async (imageUrl: string) => {
+    setFormData(prev => ({ ...prev, image_url: imageUrl }));
+    showModal('success', 'Başarılı!', 'Ana görsel başarıyla güncellendi!', true);
+  };
+
+  // Drag & Drop functions for image reordering
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    setDraggedIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/html', '');
+  };
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverIndex(index);
+  };
+
+  const handleDragLeave = () => {
+    setDragOverIndex(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+  };
+
+  const handleImageReorder = (e: React.DragEvent, dropIndex: number) => {
+    e.preventDefault();
     
-    // Eğer ilk dosyayı siliyorsak ve başka dosya varsa, yeni ilk dosyayı ana görsel yap
-    if (index === 0 && selectedFiles.length > 1) {
-      const fakeUrl = `/uploads/${selectedFiles[1].name}`;
-      setFormData({ ...formData, image_url: fakeUrl });
-    } else if (selectedFiles.length === 1) {
-      setFormData({ ...formData, image_url: '' });
+    if (draggedIndex === null || draggedIndex === dropIndex) {
+      setDraggedIndex(null);
+      setDragOverIndex(null);
+      return;
+    }
+
+    const newImages = [...existingImages];
+    const draggedImage = newImages[draggedIndex];
+    
+    // Remove the dragged image from its current position
+    newImages.splice(draggedIndex, 1);
+    
+    // Insert it at the new position
+    newImages.splice(dropIndex, 0, draggedImage);
+    
+    setExistingImages(newImages);
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+    
+    // Ana görsel değişmişse güncelle
+    if (draggedIndex === 0) {
+      // Ana görsel sürükleniyorsa, yeni ilk görsel ana görsel olsun
+      setFormData(prev => ({ ...prev, image_url: newImages[0] || '' }));
+    } else if (dropIndex === 0) {
+      // Bir görsel ana görsel pozisyonuna sürükleniyorsa, onu ana görsel yap
+      setFormData(prev => ({ ...prev, image_url: draggedImage }));
     }
   };
 
@@ -223,6 +377,269 @@ Detaylı rehber için STORAGE_SETUP.md dosyasını inceleyin.
              : type === 'number' ? (value === '' ? null : Number(value))
              : value
     });
+  };
+
+  // Modal functions
+  const showModal = (type: 'success' | 'error' | 'warning' | 'info', title: string, message: string, showPositiveImage = false) => {
+    setModal({
+      isOpen: true,
+      type,
+      title,
+      message,
+      showPositiveImage: type === 'success' ? showPositiveImage : false
+    });
+  };
+
+  const closeModal = () => {
+    setModal(prev => ({ ...prev, isOpen: false }));
+  };
+
+  // Confirmation modal functions
+  const showConfirmModal = (
+    title: string, 
+    message: string, 
+    onConfirm: () => void, 
+    options: {
+      confirmText?: string;
+      cancelText?: string;
+      isDangerous?: boolean;
+      showNegativeImage?: boolean;
+    } = {}
+  ) => {
+    setConfirmModal({
+      isOpen: true,
+      title,
+      message,
+      onConfirm,
+      onCancel: () => setConfirmModal(prev => ({ ...prev, isOpen: false })),
+      confirmText: options.confirmText || 'Evet',
+      cancelText: options.cancelText || 'Hayır',
+      isDangerous: options.isDangerous || false,
+      showNegativeImage: options.showNegativeImage || false
+    });
+  };
+
+  const closeConfirmModal = () => {
+    setConfirmModal(prev => ({ ...prev, isOpen: false }));
+  };
+
+  // Modal Component
+  const Modal = () => {
+    if (!modal.isOpen) return null;
+
+    const getModalIcon = () => {
+      switch (modal.type) {
+        case 'success':
+          return '✅';
+        case 'error':
+          return '❌';
+        case 'warning':
+          return '⚠️';
+        case 'info':
+          return 'ℹ️';
+        default:
+          return 'ℹ️';
+      }
+    };
+
+    const getModalColors = () => {
+      switch (modal.type) {
+        case 'success':
+          return {
+            bg: 'bg-green-50',
+            border: 'border-green-200',
+            title: 'text-green-800',
+            message: 'text-green-700',
+            button: 'bg-green-600 hover:bg-green-700'
+          };
+        case 'error':
+          return {
+            bg: 'bg-red-50',
+            border: 'border-red-200',
+            title: 'text-red-800',
+            message: 'text-red-700',
+            button: 'bg-red-600 hover:bg-red-700'
+          };
+        case 'warning':
+          return {
+            bg: 'bg-amber-50',
+            border: 'border-amber-200',
+            title: 'text-amber-800',
+            message: 'text-amber-700',
+            button: 'bg-amber-600 hover:bg-amber-700'
+          };
+        case 'info':
+          return {
+            bg: 'bg-blue-50',
+            border: 'border-blue-200',
+            title: 'text-blue-800',
+            message: 'text-blue-700',
+            button: 'bg-blue-600 hover:bg-blue-700'
+          };
+        default:
+          return {
+            bg: 'bg-gray-50',
+            border: 'border-gray-200',
+            title: 'text-gray-800',
+            message: 'text-gray-700',
+            button: 'bg-gray-600 hover:bg-gray-700'
+          };
+      }
+    };
+
+    const colors = getModalColors();
+
+    return (
+      <div className="fixed inset-0 z-50 overflow-y-auto">
+        {/* Backdrop */}
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 transition-opacity duration-300"
+          onClick={closeModal}
+        />
+        
+        {/* Modal */}
+        <div className="flex min-h-full items-center justify-center p-4">
+          <div className={`relative w-full max-w-md transform overflow-hidden rounded-2xl bg-white shadow-2xl transition-all duration-300 ${colors.bg} ${colors.border} border-2`}>
+            {/* Close button */}
+            <button
+              onClick={closeModal}
+              className="absolute right-4 top-4 text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+
+            {/* Content */}
+            <div className="p-6">
+              <div className="flex items-center justify-center mb-4">
+                {modal.showPositiveImage && (
+                  <img 
+                    src="/miro_positive.webp" 
+                    alt="Success" 
+                    className="w-16 h-16 object-contain"
+                  />
+                )}
+                {!modal.showPositiveImage && (
+                  <div className="text-4xl">
+                    {getModalIcon()}
+                  </div>
+                )}
+              </div>
+              
+              <h3 className={`text-xl font-bold text-center mb-4 ${colors.title}`}>
+                {modal.title}
+              </h3>
+              
+              <p className={`text-center mb-6 ${colors.message} whitespace-pre-line`}>
+                {modal.message}
+              </p>
+              
+              <div className="flex justify-center">
+                <button
+                  onClick={closeModal}
+                  className={`px-6 py-2 rounded-lg text-white font-medium transition-colors ${colors.button}`}
+                >
+                  Tamam
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Confirmation Modal Component
+  const ConfirmModal = () => {
+    if (!confirmModal.isOpen) return null;
+
+    const colors = confirmModal.isDangerous 
+      ? {
+          bg: 'bg-red-50',
+          border: 'border-red-200',
+          title: 'text-red-800',
+          message: 'text-red-700',
+          confirmButton: 'bg-red-600 hover:bg-red-700',
+          cancelButton: 'bg-gray-500 hover:bg-gray-600'
+        }
+      : {
+          bg: 'bg-blue-50',
+          border: 'border-blue-200',
+          title: 'text-blue-800',
+          message: 'text-blue-700',
+          confirmButton: 'bg-blue-600 hover:bg-blue-700',
+          cancelButton: 'bg-gray-500 hover:bg-gray-600'
+        };
+
+    return (
+      <div className="fixed inset-0 z-50 overflow-y-auto">
+        {/* Backdrop */}
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 transition-opacity duration-300"
+          onClick={confirmModal.onCancel}
+        />
+        
+        {/* Modal */}
+        <div className="flex min-h-full items-center justify-center p-4">
+          <div className={`relative w-full max-w-md transform overflow-hidden rounded-2xl bg-white shadow-2xl transition-all duration-300 ${colors.bg} ${colors.border} border-2`}>
+            {/* Close button */}
+            <button
+              onClick={confirmModal.onCancel}
+              className="absolute right-4 top-4 text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+
+            {/* Content */}
+            <div className="p-6">
+              <div className="flex items-center justify-center mb-4">
+                {confirmModal.showNegativeImage && (
+                  <img 
+                    src="/miro_negative.webp" 
+                    alt="Warning" 
+                    className="w-16 h-16 object-contain"
+                  />
+                )}
+                {!confirmModal.showNegativeImage && (
+                  <div className="text-4xl">
+                    {confirmModal.isDangerous ? '⚠️' : '❓'}
+                  </div>
+                )}
+              </div>
+              
+              <h3 className={`text-xl font-bold text-center mb-4 ${colors.title}`}>
+                {confirmModal.title}
+              </h3>
+              
+              <p className={`text-center mb-6 ${colors.message}`}>
+                {confirmModal.message}
+              </p>
+              
+              <div className="flex justify-center space-x-4">
+                <button
+                  onClick={confirmModal.onCancel}
+                  className={`px-6 py-2 rounded-lg text-white font-medium transition-colors ${colors.cancelButton}`}
+                >
+                  {confirmModal.cancelText}
+                </button>
+                <button
+                  onClick={() => {
+                    confirmModal.onConfirm();
+                    closeConfirmModal();
+                  }}
+                  className={`px-6 py-2 rounded-lg text-white font-medium transition-colors ${colors.confirmButton}`}
+                >
+                  {confirmModal.confirmText}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -376,37 +793,106 @@ Detaylı rehber için STORAGE_SETUP.md dosyasını inceleyin.
                 <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
                   <div className="flex items-center">
                     <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mr-3"></div>
-                    <span className="text-blue-700 text-sm">Görsel yükleniyor...</span>
+                    <span className="text-blue-700 text-sm">Görseller yükleniyor...</span>
                   </div>
                 </div>
               )}
 
-              {/* File Preview */}
-              {previewUrls.length > 0 && (
+              {/* Existing Images */}
+              {existingImages.length > 0 && (
                 <div className="mt-4">
-                  <h4 className="text-sm font-medium text-gray-700 mb-2">Seçilen Görseller</h4>
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="text-sm font-medium text-gray-700">Yüklenen Görseller</h4>
+                    <div className="flex items-center text-xs text-gray-500">
+                      <svg className="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+                      </svg>
+                      Sıralamak için sürükleyip bırakın
+                    </div>
+                  </div>
                   <div className="grid grid-cols-3 gap-3">
-                    {previewUrls.map((url, index) => (
-                      <div key={index} className="relative">
+                    {existingImages.map((imageUrl, index) => (
+                      <div 
+                        key={index} 
+                        className={`relative group cursor-move transition-all duration-200 ${
+                          draggedIndex === index ? 'opacity-50 scale-95' : ''
+                        } ${
+                          dragOverIndex === index ? 'ring-2 ring-blue-400 scale-105' : ''
+                        }`}
+                        draggable
+                        onDragStart={(e) => handleDragStart(e, index)}
+                        onDragOver={(e) => handleDragOver(e, index)}
+                        onDragLeave={handleDragLeave}
+                        onDragEnd={handleDragEnd}
+                        onDrop={(e) => handleImageReorder(e, index)}
+                      >
                         <img
-                          src={url}
-                          alt={`Preview ${index + 1}`}
+                          src={imageUrl}
+                          alt={`Görsel ${index + 1}`}
                           className="w-full h-24 object-cover rounded-lg border"
                         />
-                        {index === 0 && (
+                        
+                        {/* Sıra numarası */}
+                        <div className="absolute top-1 right-1 bg-gray-800 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">
+                          {index + 1}
+                        </div>
+                        
+                        {/* Ana görsel işareti */}
+                        {formData.image_url === imageUrl && (
                           <div className="absolute top-1 left-1 bg-blue-500 text-white text-xs px-2 py-1 rounded">
                             Ana Görsel
                           </div>
                         )}
-                        <button
-                          type="button"
-                          onClick={() => removeFile(index)}
-                          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600"
-                        >
-                          ×
-                        </button>
+                        
+                        {/* Drag handle */}
+                        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <svg className="w-6 h-6 text-white drop-shadow-lg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+                          </svg>
+                        </div>
+                        
+                        {/* Silme durumu */}
+                        {deletingImages.includes(imageUrl) && (
+                          <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center rounded-lg">
+                            <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                          </div>
+                        )}
+                        
+                        {/* Hover butonları */}
+                        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-opacity rounded-lg flex items-center justify-center space-x-2 opacity-0 group-hover:opacity-100">
+                          {formData.image_url !== imageUrl && (
+                            <button
+                              type="button"
+                              onClick={() => setAsMainImage(imageUrl)}
+                              className="bg-blue-500 text-white p-2 rounded-full hover:bg-blue-600 transition-colors"
+                              title="Ana görsel yap"
+                            >
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                              </svg>
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteExistingImage(imageUrl)}
+                            className="bg-red-500 text-white p-2 rounded-full hover:bg-red-600 transition-colors"
+                            title="Görseli sil"
+                            disabled={deletingImages.includes(imageUrl)}
+                          >
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
+                        </div>
                       </div>
                     ))}
+                  </div>
+                  
+                  {/* Bilgilendirme metni */}
+                  <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <p className="text-blue-700 text-sm">
+                      💡 <strong>İpucu:</strong> Görselleri sürükleyip bırakarak sıralayabilirsiniz. İlk görsel ana kapak görseli olarak kullanılır. Ürün sayfasında görseller bu sırayla görüntülenir.
+                    </p>
                   </div>
                 </div>
               )}
@@ -414,7 +900,7 @@ Detaylı rehber için STORAGE_SETUP.md dosyasını inceleyin.
               {/* Success Message */}
               {formData.image_url && !imageUploading && (
                 <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
-                  <p className="text-green-700 text-sm">✓ Ana görsel başarıyla yüklendi</p>
+                  <p className="text-green-700 text-sm">✓ Ana görsel belirlendi</p>
                 </div>
               )}
             </div>
@@ -447,36 +933,36 @@ Detaylı rehber için STORAGE_SETUP.md dosyasını inceleyin.
                     Stokta Var
                   </label>
                 </div>
-
-
               </div>
             </div>
 
             {/* Submit Button */}
-            <div className="pt-6 border-t border-gray-200">
-              <div className="flex justify-end space-x-4">
-                <Link href="/admin/products" className="bg-gray-300 text-gray-700 px-6 py-2 rounded-md hover:bg-gray-400 transition-colors">
-                  İptal
-                </Link>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {loading ? (
-                    <div className="flex items-center">
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                      Ekleniyor...
-                    </div>
-                  ) : (
-                    'Ürün Ekle'
-                  )}
-                </button>
-              </div>
+            <div className="flex justify-end space-x-4">
+              <Link
+                href="/admin/products"
+                className="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                İptal
+              </Link>
+              <button
+                type="submit"
+                disabled={loading || imageUploading}
+                className={`px-6 py-2 rounded-md text-white font-medium transition-colors ${
+                  loading || imageUploading
+                    ? 'bg-gray-400 cursor-not-allowed'
+                    : 'bg-blue-600 hover:bg-blue-700'
+                }`}
+              >
+                {loading ? 'Ekleniyor...' : 'Ürün Ekle'}
+              </button>
             </div>
           </form>
         </div>
       </div>
+
+      {/* Modals */}
+      <Modal />
+      <ConfirmModal />
     </div>
   );
 } 

@@ -20,6 +20,38 @@ export async function POST(request: NextRequest) {
       }, { status: 500 });
     }
 
+    // Yeni ürün oluşturulduktan sonra storage'daki product-new- dosyalarını yeniden adlandır
+    let updatedImageUrl = newProduct.image_url;
+    if (newProduct?.id) {
+      try {
+        const renamedImages = await renameNewProductImages(newProduct.id);
+        
+        // Eğer ana görsel yeniden adlandırıldıysa, güncellenen URL'i al
+        if (renamedImages.length > 0 && newProduct.image_url) {
+          const oldImageName = newProduct.image_url.split('/').pop();
+          const renamedImage = renamedImages.find(img => img.oldUrl.includes(oldImageName || ''));
+          if (renamedImage) {
+            updatedImageUrl = renamedImage.newUrl;
+            
+            // Veritabanındaki image_url'i güncelle
+            const { error: updateError } = await supabase
+              .from('products')
+              .update({ image_url: updatedImageUrl })
+              .eq('id', newProduct.id);
+              
+            if (updateError) {
+              console.error('Error updating product image_url:', updateError);
+            } else {
+              newProduct.image_url = updatedImageUrl;
+            }
+          }
+        }
+      } catch (renameError) {
+        console.error('Error renaming product images:', renameError);
+        // Görsel yeniden adlandırma hatası olsa da ürün oluşturuldu, sadece log'la
+      }
+    }
+
     return NextResponse.json({
       success: true,
       product: newProduct,
@@ -31,6 +63,94 @@ export async function POST(request: NextRequest) {
       error: 'Sunucu hatası oluştu'
     }, { status: 500 });
   }
+}
+
+// Storage'daki product-new- dosyalarını gerçek product ID'si ile yeniden adlandır
+async function renameNewProductImages(productId: number): Promise<{oldUrl: string, newUrl: string}[]> {
+  const supabase = getServerSupabaseClient();
+  const renamedImages: {oldUrl: string, newUrl: string}[] = [];
+  
+  // Storage'dan product-new- ile başlayan dosyaları listele
+  const { data: files, error: listError } = await supabase.storage
+    .from('products')
+    .list('', {
+      limit: 100,
+      offset: 0,
+    });
+
+  if (listError) {
+    console.error('Error listing files:', listError);
+    return renamedImages;
+  }
+
+  // product-new- ile başlayan dosyaları filtrele
+  const newProductFiles = files?.filter(file => 
+    file.name.startsWith('product-new-')
+  ) || [];
+
+  console.log(`Found ${newProductFiles.length} files to rename for product ${productId}`);
+
+  // Her dosyayı yeniden adlandır
+  for (const file of newProductFiles) {
+    try {
+      // Yeni dosya adı oluştur (product-new- yerine product-{id}-)
+      const newFileName = file.name.replace('product-new-', `product-${productId}-`);
+      
+      // Eski URL'i al
+      const { data: oldUrlData } = supabase.storage
+        .from('products')
+        .getPublicUrl(file.name);
+      
+      // Dosyayı download et
+      const { data: downloadData, error: downloadError } = await supabase.storage
+        .from('products')
+        .download(file.name);
+
+      if (downloadError) {
+        console.error(`Error downloading file ${file.name}:`, downloadError);
+        continue;
+      }
+
+      // Yeni isimle upload et
+      const { error: uploadError } = await supabase.storage
+        .from('products')
+        .upload(newFileName, downloadData, {
+          cacheControl: '3600',
+          upsert: true,
+          contentType: downloadData.type
+        });
+
+      if (uploadError) {
+        console.error(`Error uploading file ${newFileName}:`, uploadError);
+        continue;
+      }
+
+      // Yeni URL'i al
+      const { data: newUrlData } = supabase.storage
+        .from('products')
+        .getPublicUrl(newFileName);
+
+      // Eski dosyayı sil
+      const { error: deleteError } = await supabase.storage
+        .from('products')
+        .remove([file.name]);
+
+      if (deleteError) {
+        console.error(`Error deleting old file ${file.name}:`, deleteError);
+      }
+
+      renamedImages.push({
+        oldUrl: oldUrlData.publicUrl,
+        newUrl: newUrlData.publicUrl
+      });
+
+      console.log(`Successfully renamed ${file.name} to ${newFileName}`);
+    } catch (error) {
+      console.error(`Error processing file ${file.name}:`, error);
+    }
+  }
+  
+  return renamedImages;
 }
 
 // Get all products
