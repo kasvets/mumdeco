@@ -77,6 +77,7 @@ export default function EditProduct() {
     image_url: '',
     is_new: false,
     in_stock: true,
+    active: true,
     rating: null,
     reviews: 0
   });
@@ -121,6 +122,7 @@ export default function EditProduct() {
           image_url: data.image_url,
           is_new: data.is_new,
           in_stock: data.in_stock,
+          active: data.active,
           rating: data.rating,
           reviews: data.reviews
         });
@@ -1110,6 +1112,19 @@ Detaylı rehber için STORAGE_SETUP.md dosyasını inceleyin.`;
                   />
                   <label htmlFor="in_stock" className="ml-2 block text-sm text-gray-900">
                     Stokta Var
+                  </label>
+                </div>
+
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id="active"
+                    checked={formData.active}
+                    onChange={(e) => setFormData({ ...formData, active: e.target.checked })}
+                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <label htmlFor="active" className="ml-2 block text-sm text-gray-900">
+                    Aktif
                   </label>
                 </div>
 

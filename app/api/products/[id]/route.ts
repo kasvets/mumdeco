@@ -12,6 +12,7 @@ export async function GET(
       .from('products')
       .select('*')
       .eq('id', params.id)
+      // .eq('active', true) // Temporarily disabled until migration
       .single();
 
     console.log('🔍 Product Detail API: Query completed');

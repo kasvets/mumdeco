@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@supabase/supabase-js';
+import { getServerConfig } from '@/lib/env';
 import { 
   getPayTRToken, 
   getPayTRIFrameUrl, 
@@ -57,6 +58,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Service role client for database operations (bypass RLS)
+    const config = getServerConfig();
+    const supabase = createClient(config.url, config.serviceRoleKey!);
+    
     // Kullanıcı kontrolü (isteğe bağlı - misafir kullanıcılar da sipariş verebilir)
     const { data: { user } } = await supabase.auth.getUser();
 
@@ -147,6 +152,7 @@ export async function POST(request: NextRequest) {
       product_id: item.product_id,
       product_name: item.name,
       product_price: item.price,
+      unit_price: item.price,
       quantity: item.quantity,
       total_price: item.price * item.quantity
     }));
@@ -223,8 +229,7 @@ export async function POST(request: NextRequest) {
         order_id: orderData.id,
         merchant_oid: orderId,
         paytr_token: tokenResponse.token,
-        payment_amount: totalAmount,
-        user_basket: JSON.stringify(basketItems),
+        total_amount: totalAmount,
         status: 'pending'
       });
 
@@ -283,6 +288,10 @@ export async function GET(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    // Service role client for database operations
+    const config = getServerConfig();
+    const supabase = createClient(config.url, config.serviceRoleKey!);
 
     // Kullanıcı kontrolü (isteğe bağlı)
     const { data: { user } } = await supabase.auth.getUser();

@@ -6,12 +6,23 @@ import { checkEnvironmentVariables } from '@/lib/env';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
+// Category mapping for display names
+const categoryMap: { [key: string]: string } = {
+  'model-1': 'Toscana',
+  'model-2': 'Provence',
+  'model-3': 'Petra',
+  'model-4': 'London',
+  'model-5': 'Aegean',
+  'model-6': 'Adriatic',
+};
+
 export default function AdminProducts() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
+  const [selectedStatus, setSelectedStatus] = useState('all'); // all, active, inactive
   const [categories, setCategories] = useState<string[]>([]);
   const router = useRouter();
 
@@ -467,10 +478,49 @@ export default function AdminProducts() {
     }
   };
 
+  const toggleActive = async (id: number, currentActive: boolean) => {
+    try {
+      const response = await fetch(`/api/admin/products?id=${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ active: !currentActive })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      
+      if (result.error) {
+        throw new Error(result.error);
+      }
+      
+      setProducts(products.map(p => 
+        p.id === id ? { ...p, active: !currentActive } : p
+      ));
+      
+      showModal('success', 'Başarılı!', `Ürün ${!currentActive ? 'aktif' : 'deaktif'} edildi!`, true);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Bilinmeyen hata';
+      console.error('Ürün durumu güncellenirken hata:', {
+        message: errorMessage,
+        error: error,
+        stack: error instanceof Error ? error.stack : undefined
+      });
+      showModal('error', 'Hata!', `Ürün durumu güncellenirken hata oluştu: ${errorMessage}`);
+    }
+  };
+
   const filteredProducts = products.filter(product => {
     const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = selectedCategory === 'all' || product.category === selectedCategory;
-    return matchesSearch && matchesCategory;
+    const matchesStatus = selectedStatus === 'all' || 
+                         (selectedStatus === 'active' && product.active !== false) ||
+                         (selectedStatus === 'inactive' && product.active === false);
+    return matchesSearch && matchesCategory && matchesStatus;
   });
 
   if (loading) {
@@ -545,6 +595,31 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key`}
           </div>
         </div>
 
+        {/* Status Tabs */}
+        <div className="mb-6">
+          <div className="border-b border-gray-200">
+            <nav className="-mb-px flex space-x-8">
+              {[
+                { key: 'all', label: 'Tümü', count: products.length },
+                { key: 'active', label: 'Aktif', count: products.filter(p => p.active !== false).length },
+                { key: 'inactive', label: 'Deaktif', count: products.filter(p => p.active === false).length }
+              ].map(tab => (
+                <button
+                  key={tab.key}
+                  onClick={() => setSelectedStatus(tab.key)}
+                  className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                    selectedStatus === tab.key
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  {tab.label} ({tab.count})
+                </button>
+              ))}
+            </nav>
+          </div>
+        </div>
+
         {/* Filters */}
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -567,7 +642,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key`}
               >
                 <option value="all">Tüm Kategoriler</option>
                 {categories.map(category => (
-                  <option key={category} value={category}>{category}</option>
+                  <option key={category} value={category}>{categoryMap[category] || category}</option>
                 ))}
               </select>
             </div>
@@ -623,7 +698,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key`}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded-full">
-                          {product.category}
+                          {categoryMap[product.category] || product.category}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -659,6 +734,16 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key`}
                               <span className="text-sm text-gray-600 ml-1">{product.rating}</span>
                             </div>
                           )}
+                          <button
+                            onClick={() => toggleActive(product.id, product.active !== false)}
+                            className={`px-3 py-1 rounded-full text-xs font-medium ml-2 ${
+                              product.active !== false
+                                ? 'bg-green-100 text-green-800 hover:bg-green-200'
+                                : 'bg-red-100 text-red-800 hover:bg-red-200'
+                            }`}
+                          >
+                            {product.active !== false ? 'Aktif' : 'Deaktif'}
+                          </button>
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">

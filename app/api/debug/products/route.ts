@@ -20,6 +20,7 @@ export async function GET(request: NextRequest) {
     let query = supabase
       .from('products')
       .select('*');
+      // .eq('active', true); // TODO: Re-enable after running migration
 
     // Apply filters based on query parameters
     if (category) {

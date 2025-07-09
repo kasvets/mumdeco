@@ -160,8 +160,7 @@ export async function GET() {
     
     const { data: products, error } = await supabase
       .from('products')
-      .select('*')
-      .order('created_at', { ascending: false });
+      .select('*');
 
     if (error) {
       console.error('Error fetching products:', error);
@@ -170,9 +169,24 @@ export async function GET() {
       }, { status: 500 });
     }
 
+    // Sort products by numerical value in name (No.1, No.2, Model-1, Model-2, etc.)
+    const sortedProducts = (products || []).sort((a, b) => {
+      // Extract number from product name
+      const extractNumber = (name: string): number => {
+        // Look for patterns like "No.1", "No.2", "Model-1", "Model-2", etc.
+        const match = name.match(/(?:No\.?|Model-?)(\d+)/i);
+        return match ? parseInt(match[1], 10) : 999999; // Put items without numbers at the end
+      };
+      
+      const numA = extractNumber(a.name);
+      const numB = extractNumber(b.name);
+      
+      return numA - numB; // Sort in ascending order (1, 2, 3, ...)
+    });
+
     return NextResponse.json({
       success: true,
-      products: products || []
+      products: sortedProducts
     });
   } catch (error) {
     console.error('Server error:', error);

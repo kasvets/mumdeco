@@ -54,6 +54,7 @@ export interface Database {
           image_url: string | null
           is_new: boolean
           in_stock: boolean
+          active: boolean
           rating: number | null
           reviews: number | null
           created_at: string
@@ -69,6 +70,7 @@ export interface Database {
           image_url?: string | null
           is_new?: boolean
           in_stock?: boolean
+          active?: boolean
           rating?: number | null
           reviews?: number | null
           created_at?: string
@@ -84,6 +86,7 @@ export interface Database {
           image_url?: string | null
           is_new?: boolean
           in_stock?: boolean
+          active?: boolean
           rating?: number | null
           reviews?: number | null
           created_at?: string
@@ -111,6 +114,168 @@ export interface Database {
           slug?: string
           description?: string | null
           created_at?: string
+        }
+      }
+      orders: {
+        Row: {
+          id: number
+          order_id: string
+          user_id: string | null
+          status: string
+          total_amount: number
+          currency: string
+          customer_email: string | null
+          customer_name: string | null
+          customer_phone: string | null
+          customer_address: string | null
+          customer_ip: string | null
+          payment_method: string
+          payment_status: string
+          billing_address: string | null
+          billing_city: string | null
+          billing_district: string | null
+          billing_zip_code: string | null
+          shipping_address: string | null
+          shipping_city: string | null
+          shipping_district: string | null
+          shipping_zip_code: string | null
+          shipping_company: string | null
+          tracking_number: string | null
+          shipping_date: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: number
+          order_id: string
+          user_id?: string | null
+          status?: string
+          total_amount: number
+          currency?: string
+          customer_email?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
+          customer_address?: string | null
+          customer_ip?: string | null
+          payment_method?: string
+          payment_status?: string
+          billing_address?: string | null
+          billing_city?: string | null
+          billing_district?: string | null
+          billing_zip_code?: string | null
+          shipping_address?: string | null
+          shipping_city?: string | null
+          shipping_district?: string | null
+          shipping_zip_code?: string | null
+          shipping_company?: string | null
+          tracking_number?: string | null
+          shipping_date?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: number
+          order_id?: string
+          user_id?: string | null
+          status?: string
+          total_amount?: number
+          currency?: string
+          customer_email?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
+          customer_address?: string | null
+          customer_ip?: string | null
+          payment_method?: string
+          payment_status?: string
+          billing_address?: string | null
+          billing_city?: string | null
+          billing_district?: string | null
+          billing_zip_code?: string | null
+          shipping_address?: string | null
+          shipping_city?: string | null
+          shipping_district?: string | null
+          shipping_zip_code?: string | null
+          shipping_company?: string | null
+          tracking_number?: string | null
+          shipping_date?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      order_items: {
+        Row: {
+          id: number
+          order_id: number
+          product_id: number | null
+          product_name: string
+          product_price: number
+          unit_price: number
+          quantity: number
+          total_price: number
+          created_at: string
+        }
+        Insert: {
+          id?: number
+          order_id: number
+          product_id?: number | null
+          product_name: string
+          product_price: number
+          unit_price: number
+          quantity?: number
+          total_price: number
+          created_at?: string
+        }
+        Update: {
+          id?: number
+          order_id?: number
+          product_id?: number | null
+          product_name?: string
+          product_price?: number
+          unit_price?: number
+          quantity?: number
+          total_price?: number
+          created_at?: string
+        }
+      }
+      paytr_payments: {
+        Row: {
+          id: number
+          merchant_oid: string
+          order_id: number
+          user_token: string | null
+          paytr_token: string | null
+          total_amount: number
+          currency: string
+          status: string
+          callback_data: any | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: number
+          merchant_oid: string
+          order_id: number
+          user_token?: string | null
+          paytr_token?: string | null
+          total_amount: number
+          currency?: string
+          status?: string
+          callback_data?: any | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: number
+          merchant_oid?: string
+          order_id?: number
+          user_token?: string | null
+          paytr_token?: string | null
+          total_amount?: number
+          currency?: string
+          status?: string
+          callback_data?: any | null
+          created_at?: string
+          updated_at?: string
         }
       }
     }
