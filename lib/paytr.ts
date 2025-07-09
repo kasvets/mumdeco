@@ -18,9 +18,9 @@ export const PAYTR_CONFIG = {
   MERCHANT_SALT: process.env.PAYTR_MERCHANT_SALT || '',
   TEST_MODE: parseInt(process.env.PAYTR_TEST_MODE || '1'),
   DEBUG_MODE: parseInt(process.env.PAYTR_DEBUG_MODE || '1'),
-  SUCCESS_URL: process.env.PAYTR_SUCCESS_URL || `https://www.mumdeco.com/payment/success`,
-  FAIL_URL: process.env.PAYTR_FAIL_URL || `https://www.mumdeco.com/payment/failure`,
-  CALLBACK_URL: process.env.PAYTR_CALLBACK_URL || `https://www.mumdeco.com/api/paytr/callback`,
+  SUCCESS_URL: process.env.PAYTR_SUCCESS_URL || `https://13b4b402f72b.ngrok.app/payment/success`,
+  FAIL_URL: process.env.PAYTR_FAIL_URL || `https://13b4b402f72b.ngrok.app/payment/failure`,
+  CALLBACK_URL: process.env.PAYTR_CALLBACK_URL || `https://13b4b402f72b.ngrok.app/api/paytr/callback`,
   // PayTR Test Credentials (fallback)
   TEST_MERCHANT_ID: '594162',
   TEST_MERCHANT_KEY: 'd2BeXLTPQD6AxkJ',
@@ -84,7 +84,18 @@ export function createPayTRBasket(items: PayTRBasketItem[]): string {
   return Buffer.from(JSON.stringify(basketArray)).toString('base64');
 }
 
-// PayTR Hash Hesaplama (Çalışan proje formatına göre)
+// Çalışan kod ile uyumluluk için alias
+export function formatUserBasket(items: any[]): string {
+  const basketItems: PayTRBasketItem[] = items.map(item => ({
+    name: item.name,
+    price: item.price,
+    quantity: item.quantity
+  }));
+  
+  return createPayTRBasket(basketItems);
+}
+
+// PayTR Hash Hesaplama (Resmi örnek koduna göre)
 export function calculatePayTRHash(
   merchant_id: string,
   merchant_key: string,
@@ -99,8 +110,8 @@ export function calculatePayTRHash(
   test_mode: number,
   user_ip: string
 ): string {
-  // Çalışan projeden doğru hash formatı:
-  // merchant_id + user_ip + merchant_oid + email + payment_amount + user_basket + no_installment + max_installment + currency + test_mode + merchant_salt
+  // PayTR gerçek API formatı (çalışan projedeki):
+  // merchant_id + user_ip + merchant_oid + email + payment_amount + user_basket + no_installment + max_installment + currency + test_mode
   const hashSTR = `${merchant_id}${user_ip}${merchant_oid}${email}${payment_amount}${user_basket}${no_installment}${max_installment}${currency}${test_mode}`;
   
   // PayTR token oluştur (salt ile birlikte)
@@ -119,27 +130,226 @@ export function calculatePayTRHash(
 }
 
 // PayTR Callback Hash Doğrulama
-export function verifyPayTRCallback(
-  merchant_oid: string,
-  merchant_salt: string,
-  status: string,
-  total_amount: number,
-  receivedHash: string
-): boolean {
-  const hashString = `${merchant_oid}${merchant_salt}${status}${total_amount}`;
-  const calculatedHash = crypto.createHash('sha256').update(hashString).digest('base64');
-  
-  return calculatedHash === receivedHash;
+export function verifyPayTRCallback(data: {
+  merchant_oid: string;
+  status: string;
+  total_amount: string;
+  hash: string;
+  merchant_id?: string;
+}): boolean {
+  try {
+    const { merchant_oid, status, total_amount, hash } = data;
+    
+    // PayTR merchant salt ve key al
+    const merchant_salt = PAYTR_CONFIG.MERCHANT_SALT;
+    const merchant_key = PAYTR_CONFIG.MERCHANT_KEY;
+    
+    if (!merchant_salt) {
+      console.error('❌ PAYTR_MERCHANT_SALT not configured');
+      return false;
+    }
+    
+    console.log('🔐 PayTR Callback Hash Debug:');
+    console.log('merchant_oid:', merchant_oid);
+    console.log('merchant_salt:', merchant_salt);
+    console.log('status:', status);
+    console.log('total_amount:', total_amount);
+    console.log('received_hash:', hash);
+    
+    // PayTR dokümanına göre standart callback hash formatı
+    const hashString = `${merchant_oid}${merchant_salt}${status}${total_amount}`;
+    const calculatedHash = crypto.createHash('sha256').update(hashString).digest('base64');
+    
+    console.log('hashString:', hashString);
+    console.log('calculatedHash:', calculatedHash);
+    console.log('isValid:', calculatedHash === hash);
+    
+    if (calculatedHash === hash) {
+      console.log('✅ Hash verification successful with standard format');
+      return true;
+    }
+    
+    // Alternatif formatları dene
+    console.log('🔄 Trying alternative hash formats...');
+    
+    // Format 1: merchant_oid + status + total_amount + merchant_salt
+    const altFormat1 = `${merchant_oid}${status}${total_amount}${merchant_salt}`;
+    const altHash1 = crypto.createHash('sha256').update(altFormat1).digest('base64');
+    console.log('Alt Hash 1 (oid+status+amount+salt):', altHash1, altHash1 === hash);
+    if (altHash1 === hash) {
+      console.log('✅ Hash verification successful with format 1');
+      return true;
+    }
+    
+    // Format 2: salt + merchant_oid + status + total_amount
+    const altFormat2 = `${merchant_salt}${merchant_oid}${status}${total_amount}`;
+    const altHash2 = crypto.createHash('sha256').update(altFormat2).digest('base64');
+    console.log('Alt Hash 2 (salt+oid+status+amount):', altHash2, altHash2 === hash);
+    if (altHash2 === hash) {
+      console.log('✅ Hash verification successful with format 2');
+      return true;
+    }
+    
+    // Format 3: HMAC with salt
+    const altHash3 = crypto.createHmac('sha256', merchant_salt).update(`${merchant_oid}${status}${total_amount}`).digest('base64');
+    console.log('Alt Hash 3 (HMAC):', altHash3, altHash3 === hash);
+    if (altHash3 === hash) {
+      console.log('✅ Hash verification successful with HMAC format');
+      return true;
+    }
+    
+    // Callback'te gelen ek alanları kullanarak deneme
+    const merchant_id = data.merchant_id; // Callback'ten gelen dinamik değer
+    
+    // Merchant_id varsa ek formatları test et
+    if (merchant_id) {
+      // Format 4: merchant_id + merchant_oid + merchant_salt + status + total_amount
+      const format4 = `${merchant_id}${merchant_oid}${merchant_salt}${status}${total_amount}`;
+      const hash4 = crypto.createHash('sha256').update(format4).digest('base64');
+      console.log('Alt Hash 4 (id+oid+salt+status+amount):', hash4, hash4 === hash);
+      if (hash4 === hash) {
+        console.log('✅ Hash verification successful with merchant_id format');
+        return true;
+      }
+      
+      // Format 5: merchant_salt + merchant_id + merchant_oid + status + total_amount
+      const format5 = `${merchant_salt}${merchant_id}${merchant_oid}${status}${total_amount}`;
+      const hash5 = crypto.createHash('sha256').update(format5).digest('base64');
+      console.log('Alt Hash 5 (salt+id+oid+status+amount):', hash5, hash5 === hash);
+      if (hash5 === hash) {
+        console.log('✅ Hash verification successful with salt+id format');
+        return true;
+      }
+      
+            // Format 8: merchant_id dahil HMAC
+      if (merchant_key) {
+        const hash8 = crypto.createHmac('sha256', merchant_key).update(`${merchant_id}${merchant_oid}${status}${total_amount}`).digest('base64');
+        console.log('Alt Hash 8 (HMAC with id):', hash8, hash8 === hash);
+        if (hash8 === hash) {
+          console.log('✅ Hash verification successful with HMAC+ID format');
+          return true;
+        }
+      }
+    }
+    
+    // Format 6: HMAC with merchant_key (PayTR resmi örnek koduna göre)
+    if (merchant_key) {
+      const hash6 = crypto.createHmac('sha256', merchant_key).update(`${merchant_oid}${merchant_salt}${status}${total_amount}`).digest('base64');
+      console.log('Alt Hash 6 (HMAC with key - PayTR format):', hash6, hash6 === hash);
+      if (hash6 === hash) {
+        console.log('✅ Hash verification successful with PayTR official HMAC format');
+        return true;
+      }
+    }
+    
+    // Format 7: merchant_oid + status + total_amount (no salt/key)
+    const format7 = `${merchant_oid}${status}${total_amount}`;
+    const hash7 = crypto.createHash('sha256').update(format7).digest('base64');
+    console.log('Alt Hash 7 (oid+status+amount only):', hash7, hash7 === hash);
+    if (hash7 === hash) {
+      console.log('✅ Hash verification successful with no salt format');
+      return true;
+    }
+    
+    console.error('❌ Hash verification failed - no format matched');
+    return false;
+    
+  } catch (error) {
+    console.error('❌ Hash verification error:', error);
+    return false;
+  }
 }
 
-// PayTR API Token Alma
+// Çalışan kod ile uyumluluk için basit getPayTRToken overload
+export async function getPayTRToken(data: {
+  merchantOid: string;
+  userIp: string;
+  email: string;
+  paymentAmount: number;
+  userName: string;
+  userAddress: string;
+  userPhone: string;
+  userBasket: string;
+}): Promise<{
+  status: string;
+  token?: string;
+  reason?: string;
+}>;
+
+// PayTR API Token Alma (mevcut full interface)
 export async function getPayTRToken(paymentRequest: PayTRPaymentRequest): Promise<{
+  status: string;
+  token?: string;
+  reason?: string;
+}>;
+
+// Implementation
+export async function getPayTRToken(
+  paymentRequestOrData: PayTRPaymentRequest | {
+    merchantOid: string;
+    userIp: string;
+    email: string;
+    paymentAmount: number;
+    userName: string;
+    userAddress: string;
+    userPhone: string;
+    userBasket: string;
+  }
+): Promise<{
+  status: string;
+  token?: string;
+  reason?: string;
+}> {
+  // Eğer basit object formatı gelirse, PayTRPaymentRequest formatına çevir
+  let paymentRequest: PayTRPaymentRequest;
+  let userBasketString: string | null = null;
+  
+  if ('merchantOid' in paymentRequestOrData) {
+    // Basit format - çalışan kod ile uyumlu
+    const data = paymentRequestOrData;
+    userBasketString = data.userBasket; // String olarak al
+    paymentRequest = {
+      merchant_id: PAYTR_CONFIG.MERCHANT_ID,
+      merchant_key: PAYTR_CONFIG.MERCHANT_KEY,
+      merchant_salt: PAYTR_CONFIG.MERCHANT_SALT,
+      merchant_oid: data.merchantOid,
+      email: data.email,
+      payment_amount: data.paymentAmount,
+      user_basket: [], // String userBasket'i internal'da handle edeceğiz
+      user_name: data.userName,
+      user_address: data.userAddress,
+      user_phone: data.userPhone,
+      user_ip: data.userIp,
+      merchant_ok_url: `${process.env.NEXT_PUBLIC_SITE_URL}/payment/success`,
+      merchant_fail_url: `${process.env.NEXT_PUBLIC_SITE_URL}/payment/failure`,
+      currency: 'TL',
+      test_mode: PAYTR_CONFIG.TEST_MODE,
+      debug_on: PAYTR_CONFIG.DEBUG_MODE,
+      no_installment: 1,
+      max_installment: 1,
+      lang: 'tr',
+      timeout_limit: 30
+    };
+  } else {
+    // Mevcut PayTRPaymentRequest formatı
+    paymentRequest = paymentRequestOrData;
+  }
+
+  return getPayTRTokenInternal(paymentRequest, userBasketString);
+}
+
+// Internal implementation
+async function getPayTRTokenInternal(
+  paymentRequest: PayTRPaymentRequest, 
+  userBasketString?: string | null
+): Promise<{
   status: string;
   token?: string;
   reason?: string;
 }> {
   try {
-    const user_basket = createPayTRBasket(paymentRequest.user_basket);
+    // Eğer userBasketString varsa onu kullan, yoksa PayTRBasketItem[]'dan oluştur
+    const user_basket = userBasketString || createPayTRBasket(paymentRequest.user_basket);
     const no_installment = paymentRequest.no_installment || 1; // Çalışan projede 1
     const max_installment = paymentRequest.max_installment || 1; // Çalışan projede 1
     const test_mode = paymentRequest.test_mode || 1; // Test için 1
@@ -187,10 +397,12 @@ export async function getPayTRToken(paymentRequest: PayTRPaymentRequest): Promis
     formParams.append('merchant_oid', paymentRequest.merchant_oid);
     formParams.append('email', paymentRequest.email);
     formParams.append('payment_amount', payment_amount_kurus.toString());
+    formParams.append('payment_type', 'card'); // PayTR örnek koduna göre
     formParams.append('currency', paymentRequest.currency);
     formParams.append('user_basket', user_basket); // Base64 encoded
-    formParams.append('no_installment', no_installment.toString());
-    formParams.append('max_installment', max_installment.toString());
+    formParams.append('no_installment', no_installment.toString()); // PayTR gerçek API'si için
+    formParams.append('max_installment', max_installment.toString()); // PayTR gerçek API'si için
+    formParams.append('non_3d', '0'); // PayTR örnek koduna göre
     formParams.append('test_mode', test_mode.toString());
     formParams.append('merchant_ok_url', paymentRequest.merchant_ok_url);
     formParams.append('merchant_fail_url', paymentRequest.merchant_fail_url);

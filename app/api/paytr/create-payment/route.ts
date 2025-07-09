@@ -99,10 +99,10 @@ export async function POST(request: NextRequest) {
     // Base URL
     const baseUrl = request.nextUrl.origin;
     
-    // Return URL'leri (Production domain)
+    // Return URL'leri (Ngrok test domain)
     const returnUrls = {
-      success: body.return_urls?.success || `https://www.mumdeco.com/payment/success`,
-      failure: body.return_urls?.failure || `https://www.mumdeco.com/payment/failure`
+      success: body.return_urls?.success || `https://13b4b402f72b.ngrok.app/payment/success`,
+      failure: body.return_urls?.failure || `https://13b4b402f72b.ngrok.app/payment/failure`
     };
 
     // Veritabanına sipariş kaydet
