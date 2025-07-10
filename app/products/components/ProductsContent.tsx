@@ -6,7 +6,7 @@ import ProductGrid from './ProductGrid';
 import FilterSidebar from './FilterSidebar';
 import { supabase } from '@/lib/supabase-client';
 import { Database } from '@/lib/supabase';
-import { Filter, LayoutGrid, List } from 'lucide-react';
+import { Filter, LayoutGrid, List, Search } from 'lucide-react';
 
 type Product = Database['public']['Tables']['products']['Row'];
 
@@ -24,6 +24,7 @@ export default function ProductsContent() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState<string>('');
   const searchParams = useSearchParams();
   
   // HER RENDER'DA STATE'İ GÖSTER
@@ -31,7 +32,8 @@ export default function ProductsContent() {
     productsLength: products.length,
     loading,
     error,
-    hasProducts: products.length > 0
+    hasProducts: products.length > 0,
+    searchTerm
   });
   
   const [filters, setFilters] = useState<ProductFilters>({
@@ -48,9 +50,26 @@ export default function ProductsContent() {
     
     async function loadProducts() {
       try {
+        setLoading(true);
         console.log('🔄 Loading from API route...');
         
-        const response = await fetch('/api/debug/products');
+        // Get search parameter from URL
+        const searchParam = searchParams.get('search');
+        const categoryParam = searchParams.get('category');
+        
+        // Build API URL with parameters
+        const apiUrl = new URL('/api/debug/products', window.location.origin);
+        if (searchParam) {
+          apiUrl.searchParams.set('search', searchParam);
+          setSearchTerm(searchParam);
+        }
+        if (categoryParam) {
+          apiUrl.searchParams.set('category', categoryParam);
+        }
+
+        console.log('🔍 API URL:', apiUrl.toString());
+        
+        const response = await fetch(apiUrl.toString());
         const result = await response.json();
 
         console.log('📊 API response:', { status: response.status, data: result });
@@ -69,7 +88,11 @@ export default function ProductsContent() {
           setProducts(result.products);
         } else {
           console.log('⚠️ No products found via API');
-          setError('API\'den ürün bulunamadı');
+          if (searchParam) {
+            setError(`"${searchParam}" için ürün bulunamadı`);
+          } else {
+            setError('API\'den ürün bulunamadı');
+          }
         }
       } catch (err) {
         console.error('❌ Exception:', err);
@@ -80,7 +103,7 @@ export default function ProductsContent() {
     }
 
     loadProducts();
-  }, []); // BOŞ DEPENDENCY - SADECE BİR KEZ ÇALIŞ
+  }, [searchParams]); // Depend on searchParams to reload when search changes
 
   // URL parametresi değiştiğinde filtreleri güncelle
   useEffect(() => {
@@ -95,7 +118,9 @@ export default function ProductsContent() {
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
-          <p className="text-gray-600">Ürünler yükleniyor...</p>
+          <p className="text-gray-600">
+            {searchTerm ? `"${searchTerm}" araması yapılıyor...` : 'Ürünler yükleniyor...'}
+          </p>
         </div>
       </div>
     );
@@ -105,7 +130,10 @@ export default function ProductsContent() {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
-          <p className="text-red-600 mb-2">Hata: {error}</p>
+          <div className="w-16 h-16 mx-auto mb-4 flex items-center justify-center bg-gray-100 rounded-full">
+            <Search className="w-8 h-8 text-gray-400" />
+          </div>
+          <p className="text-gray-600 mb-2">{error}</p>
           <button 
             onClick={() => window.location.reload()} 
             className="px-4 py-2 bg-primary text-white rounded hover:bg-primary/90"
@@ -121,7 +149,12 @@ export default function ProductsContent() {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
-          <p className="text-gray-600 mb-2">Ürün bulunamadı</p>
+          <div className="w-16 h-16 mx-auto mb-4 flex items-center justify-center bg-gray-100 rounded-full">
+            <Search className="w-8 h-8 text-gray-400" />
+          </div>
+          <p className="text-gray-600 mb-2">
+            {searchTerm ? `"${searchTerm}" için ürün bulunamadı` : 'Ürün bulunamadı'}
+          </p>
           <button 
             onClick={() => window.location.reload()} 
             className="px-4 py-2 bg-primary text-white rounded hover:bg-primary/90"
@@ -187,13 +220,21 @@ export default function ProductsContent() {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
             <div className="flex items-center gap-2">
               <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
-                Ürünler
+                {searchTerm ? `"${searchTerm}" Arama Sonuçları` : 'Ürünler'}
               </h1>
               <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
                 {filteredProducts.length} ürün
               </span>
             </div>
             
+            {/* Search Results Info */}
+            {searchTerm && (
+              <div className="flex items-center gap-2 text-sm text-gray-600">
+                <Search className="w-4 h-4" />
+                <span>Arama: "{searchTerm}"</span>
+              </div>
+            )}
+
             {/* Desktop Actions */}
             <div className="hidden sm:flex items-center gap-3">
               <div className="flex items-center bg-white border border-gray-200 rounded-lg p-1">

@@ -8,11 +8,12 @@ export async function GET(request: NextRequest) {
     // Extract query parameters
     const { searchParams } = new URL(request.url);
     const category = searchParams.get('category');
+    const search = searchParams.get('search');
     const isNew = searchParams.get('new') === 'true';
     const isFeatured = searchParams.get('featured') === 'true';
     const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!) : undefined;
 
-    console.log('🔍 Debug Products: Query params:', { category, isNew, isFeatured, limit });
+    console.log('🔍 Debug Products: Query params:', { category, search, isNew, isFeatured, limit });
 
     const supabase = getServerSupabaseClient();
     
@@ -21,6 +22,12 @@ export async function GET(request: NextRequest) {
       .from('products')
       .select('*');
       // .eq('active', true); // TODO: Re-enable after running migration
+
+    // Apply search filter
+    if (search) {
+      // Search in product name and description
+      query = query.or(`name.ilike.%${search}%,description.ilike.%${search}%,category.ilike.%${search}%`);
+    }
 
     // Apply filters based on query parameters
     if (category) {
@@ -31,13 +38,18 @@ export async function GET(request: NextRequest) {
       query = query.eq('is_new', true);
     }
 
-    if (isFeatured || (!category && !isNew)) {
+    if (isFeatured || (!category && !isNew && !search)) {
       // For featured or default requests, only show in-stock items
       query = query.eq('in_stock', true);
     }
 
     // Apply ordering
-    query = query.order('created_at', { ascending: false });
+    if (search) {
+      // For search results, order by relevance (items with search term in name first)
+      query = query.order('name', { ascending: true });
+    } else {
+      query = query.order('created_at', { ascending: false });
+    }
 
     // Apply limit if specified
     if (limit && limit > 0) {
@@ -60,9 +72,10 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       status: 'success',
-      message: 'Products fetched successfully',
+      message: search ? `Search completed for "${search}"` : 'Products fetched successfully',
       productCount: data?.length || 0,
-      queryParams: { category, isNew, isFeatured, limit },
+      queryParams: { category, search, isNew, isFeatured, limit },
+      searchTerm: search,
       products: data?.map(p => ({
         id: p.id,
         name: p.name,

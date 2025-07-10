@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link'
 import Image from 'next/image'
+import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { useCart } from '@/lib/cart-context'
 import UserProfileModal from './UserProfileModal'
@@ -10,10 +11,13 @@ import UserProfileModal from './UserProfileModal'
 const Navbar = () => {
   const { user, userProfile, loading } = useAuth();
   const { getTotalItems, getTotal } = useCart();
+  const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
   const [showMobileSearch, setShowMobileSearch] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [mobileSearchQuery, setMobileSearchQuery] = useState('');
 
   // Debug: Auth state'i kontrol et
   useEffect(() => {
@@ -35,6 +39,66 @@ const Navbar = () => {
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  // Handle search submission
+  const handleSearch = (query: string) => {
+    if (query.trim()) {
+      router.push(`/products?search=${encodeURIComponent(query.trim())}`);
+      setShowMobileSearch(false);
+    }
+  };
+
+  // Debounced search function
+  const debouncedSearch = useCallback((query: string) => {
+    const timeoutId = setTimeout(() => {
+      if (query.trim().length > 0) {
+        handleSearch(query);
+      }
+    }, 500); // 500ms delay
+
+    return () => clearTimeout(timeoutId);
+  }, [router]);
+
+  // Auto-search effect for desktop
+  useEffect(() => {
+    if (searchQuery.trim().length > 0) {
+      const cleanup = debouncedSearch(searchQuery);
+      return cleanup;
+    }
+  }, [searchQuery, debouncedSearch]);
+
+  // Auto-search effect for mobile
+  useEffect(() => {
+    if (mobileSearchQuery.trim().length > 0) {
+      const cleanup = debouncedSearch(mobileSearchQuery);
+      return cleanup;
+    }
+  }, [mobileSearchQuery, debouncedSearch]);
+
+  // Handle search input submission
+  const handleSearchSubmit = (e: React.FormEvent, isMobile: boolean = false) => {
+    e.preventDefault();
+    const query = isMobile ? mobileSearchQuery : searchQuery;
+    handleSearch(query);
+  };
+
+  // Handle search input key press
+  const handleSearchKeyPress = (e: React.KeyboardEvent, isMobile: boolean = false) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const query = isMobile ? mobileSearchQuery : searchQuery;
+      handleSearch(query);
+    }
+  };
+
+  // Handle search input changes
+  const handleSearchChange = (value: string, isMobile: boolean = false) => {
+    if (isMobile) {
+      setMobileSearchQuery(value);
+    } else {
+      setSearchQuery(value);
+    }
+  };
 
   return (
     <div className={`fixed w-full top-0 z-50 transition-all duration-300 ${isScrolled ? 'translate-y-0' : ''}`}>
@@ -106,18 +170,24 @@ const Navbar = () => {
 
             {/* Desktop Search Bar */}
             <div className="hidden md:flex flex-1 max-w-5xl mx-8 ml-16">
-              <div className="relative w-full group">
+              <form onSubmit={(e) => handleSearchSubmit(e, false)} className="relative w-full group">
                 <input
                   type="text"
                   placeholder="Ürün veya kategori ara..."
+                  value={searchQuery}
+                  onChange={(e) => handleSearchChange(e.target.value, false)}
+                  onKeyPress={(e) => handleSearchKeyPress(e, false)}
                   className="w-full pl-12 pr-4 py-3 bg-white border-2 border-gray-100 rounded-full focus:outline-none focus:border-primary/20 transition-all duration-200 text-base group-hover:border-primary/20"
                 />
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                <button
+                  type="submit"
+                  className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-auto cursor-pointer"
+                >
                   <svg className="h-5 w-5 text-gray-400 group-hover:text-primary/60 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
-                </div>
-              </div>
+                </button>
+              </form>
             </div>
 
             {/* Account & Cart - Mobile optimized */}
@@ -191,18 +261,24 @@ const Navbar = () => {
           {/* Mobile Search Bar */}
           {showMobileSearch && (
             <div className="md:hidden mt-4 animate-in slide-in-from-top-1 duration-200">
-              <div className="relative">
+              <form onSubmit={(e) => handleSearchSubmit(e, true)} className="relative">
                 <input
                   type="text"
                   placeholder="Ürün ara..."
+                  value={mobileSearchQuery}
+                  onChange={(e) => handleSearchChange(e.target.value, true)}
+                  onKeyPress={(e) => handleSearchKeyPress(e, true)}
                   className="w-full pl-12 pr-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-full focus:outline-none focus:border-primary/20 focus:bg-white transition-all duration-200 text-base"
                 />
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                <button
+                  type="submit"
+                  className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-auto cursor-pointer"
+                >
                   <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
-                </div>
-              </div>
+                </button>
+              </form>
             </div>
           )}
 
