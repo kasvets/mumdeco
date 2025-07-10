@@ -175,21 +175,21 @@ export default function About() {
           </div>
 
           {/* Contact */}
-          <div className="text-center bg-gradient-to-r from-slate-600 to-blue-600 rounded-xl p-10 text-white">
-            <h2 className="text-2xl font-serif font-bold mb-4">
+          <div className="text-center bg-white rounded-xl p-10 shadow-lg">
+            <h2 className="text-2xl font-serif font-bold mb-4 text-gray-800">
               Bizimle İletişime Geçin
             </h2>
-            <p className="text-lg mb-6 opacity-90">
+            <p className="text-lg mb-6 text-gray-600">
               Sorularınız, özel tasarım talepleriniz ve önerileriniz için her zaman buradayız.
             </p>
             <div className="flex flex-col md:flex-row justify-center items-center space-y-4 md:space-y-0 md:space-x-6">
               <a href="mailto:info@mumdeco.com" 
-                 className="bg-white/20 hover:bg-white/30 transition-all duration-300 px-6 py-3 rounded-lg">
+                 className="bg-gray-100 hover:bg-gray-200 transition-all duration-300 px-6 py-3 rounded-lg text-gray-800">
                 info@mumdeco.com
               </a>
-              <a href="tel:+905324672418" 
-                 className="bg-white/20 hover:bg-white/30 transition-all duration-300 px-6 py-3 rounded-lg">
-                +90 532 467 24 18
+              <a href="tel:+905313552271" 
+                 className="bg-gray-100 hover:bg-gray-200 transition-all duration-300 px-6 py-3 rounded-lg text-gray-800">
+                +90 531 355 22 71
               </a>
             </div>
           </div>

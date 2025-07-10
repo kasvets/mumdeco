@@ -44,7 +44,7 @@ export default function DistanceSalesContract() {
                 <p className="text-gray-700 mb-2"><strong>Adresi:</strong> İstanbul, Türkiye</p>
                 <p className="text-gray-700 mb-2"><strong>İnternet Sitesi:</strong> www.mumdeco.com</p>
                 <p className="text-gray-700 mb-2"><strong>E-posta:</strong> info@mumdeco.com</p>
-                <p className="text-gray-700"><strong>Tel. No:</strong> +90 532 467 24 18</p>
+                <p className="text-gray-700"><strong>Tel. No:</strong> +90 531 355 22 71</p>
               </div>
 
               <h3 className="text-xl font-serif font-semibold text-gray-700 mt-8 mb-4">

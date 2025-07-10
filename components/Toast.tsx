@@ -22,35 +22,44 @@ export default function Toast({ message, type, isVisible, onClose, duration = 30
   if (!isVisible) return null;
 
   return (
-    <div className={`fixed top-4 right-4 z-50 transform transition-all duration-300 ${
-      isVisible ? 'translate-y-0 opacity-100' : '-translate-y-2 opacity-0'
+    <div className={`fixed top-4 right-4 z-50 transform transition-all duration-500 ease-out ${
+      isVisible ? 'translate-y-0 opacity-100 scale-100' : '-translate-y-2 opacity-0 scale-95'
     }`}>
-      <div className={`max-w-sm w-full shadow-lg rounded-lg pointer-events-auto overflow-hidden ${
-        type === 'success' ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'
+      <div className={`max-w-sm w-full shadow-2xl rounded-2xl pointer-events-auto overflow-hidden backdrop-blur-lg ${
+        type === 'success' 
+          ? 'bg-white/95 border-2 border-green-200/50' 
+          : 'bg-white/95 border-2 border-red-200/50'
       }`}>
         <div className="p-4">
-          <div className="flex items-start">
-            <div className="flex-shrink-0">
+          <div className="flex items-center">
+            <div className={`flex-shrink-0 p-2 rounded-full ${
+              type === 'success' ? 'bg-green-100' : 'bg-red-100'
+            }`}>
               {type === 'success' ? (
-                <CheckCircle className="h-5 w-5 text-green-600" />
+                <ShoppingCart className="h-5 w-5 text-green-600" />
               ) : (
                 <X className="h-5 w-5 text-red-600" />
               )}
             </div>
-            <div className="ml-3 w-0 flex-1">
-              <p className={`text-sm font-medium ${
-                type === 'success' ? 'text-green-800' : 'text-red-800'
+            <div className="ml-3 flex-1">
+              <p className={`text-sm font-semibold ${
+                type === 'success' ? 'text-gray-800' : 'text-red-800'
               }`}>
                 {message}
               </p>
+              {type === 'success' && (
+                <p className="text-xs text-gray-600 mt-1">
+                  Sepete başarıyla eklendi
+                </p>
+              )}
             </div>
-            <div className="ml-4 flex-shrink-0 flex">
+            <div className="ml-4 flex-shrink-0">
               <button
                 onClick={onClose}
-                className={`inline-flex rounded-md p-1.5 transition-colors ${
+                className={`inline-flex rounded-full p-1.5 transition-all duration-200 ${
                   type === 'success' 
-                    ? 'text-green-500 hover:bg-green-100' 
-                    : 'text-red-500 hover:bg-red-100'
+                    ? 'text-gray-400 hover:text-gray-600 hover:bg-gray-100' 
+                    : 'text-red-400 hover:text-red-600 hover:bg-red-100'
                 }`}
               >
                 <span className="sr-only">Kapat</span>
@@ -58,6 +67,17 @@ export default function Toast({ message, type, isVisible, onClose, duration = 30
               </button>
             </div>
           </div>
+        </div>
+        
+        {/* Progress bar */}
+        <div className={`h-1 w-full ${
+          type === 'success' ? 'bg-green-100' : 'bg-red-100'
+        }`}>
+          <div 
+            className={`h-full transition-all duration-[3000ms] ease-linear ${
+              type === 'success' ? 'bg-green-500' : 'bg-red-500'
+            } ${isVisible ? 'w-0' : 'w-full'}`}
+          />
         </div>
       </div>
     </div>

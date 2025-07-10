@@ -22,7 +22,7 @@ const anton = Anton({
 })
 
 export const metadata = {
-  title: 'Mumdeco - Afrodizyak Etkili Mumlar',
+  title: 'Mumdeco - Light The Way',
   description: 'Özel tasarım, afrodizyak etkili dekoratif mumlar',
 }
 

@@ -6,7 +6,7 @@ import ProductGrid from './ProductGrid';
 import FilterSidebar from './FilterSidebar';
 import { supabase } from '@/lib/supabase-client';
 import { Database } from '@/lib/supabase';
-import { Filter, LayoutGrid, List, Search } from 'lucide-react';
+import { Filter, Search } from 'lucide-react';
 
 type Product = Database['public']['Tables']['products']['Row'];
 
@@ -19,7 +19,7 @@ interface ProductFilters {
 }
 
 export default function ProductsContent() {
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+
   const [showFilters, setShowFilters] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -235,31 +235,7 @@ export default function ProductsContent() {
               </div>
             )}
 
-            {/* Desktop Actions */}
-            <div className="hidden sm:flex items-center gap-3">
-              <div className="flex items-center bg-white border border-gray-200 rounded-lg p-1">
-                <button
-                  onClick={() => setViewMode('grid')}
-                  className={`p-2 rounded-md transition-colors ${
-                    viewMode === 'grid' 
-                      ? 'bg-primary text-white' 
-                      : 'text-gray-600 hover:text-gray-900'
-                  }`}
-                >
-                  <LayoutGrid className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => setViewMode('list')}
-                  className={`p-2 rounded-md transition-colors ${
-                    viewMode === 'list' 
-                      ? 'bg-primary text-white' 
-                      : 'text-gray-600 hover:text-gray-900'
-                  }`}
-                >
-                  <List className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
+
           </div>
 
           {/* Products Grid */}

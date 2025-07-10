@@ -1,9 +1,43 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, User, Mail, Phone, MapPin, Heart, Package, CreditCard, Settings, LogOut, Edit2, Loader2 } from 'lucide-react';
+import { X, User, Mail, Phone, MapPin, Package, LogOut, Edit2, Loader2, ArrowLeft, Calendar, ShoppingBag } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import { supabase } from '@/lib/supabase-client';
+
+interface OrderItem {
+  id: number;
+  product_id: number | null;
+  product_name: string;
+  product_price: number;
+  unit_price: number;
+  quantity: number;
+  total_price: number;
+  products?: {
+    image_url: string;
+  } | null;
+}
+
+interface Order {
+  id: number;
+  order_id: string;
+  user_id: string | null;
+  status: string;
+  total_amount: number;
+  currency: string;
+  customer_email: string | null;
+  customer_name: string | null;
+  customer_phone: string | null;
+  customer_address: string | null;
+  payment_method: string;
+  payment_status: string;
+  shipping_company: string | null;
+  tracking_number: string | null;
+  shipping_date: string | null;
+  created_at: string;
+  updated_at: string;
+  order_items: OrderItem[];
+}
 
 interface UserProfileModalProps {
   isOpen: boolean;
@@ -18,6 +52,9 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose }) 
   const [success, setSuccess] = useState<string | null>(null);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [forceRender, setForceRender] = useState(0);
+  const [showOrders, setShowOrders] = useState(false);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [ordersLoading, setOrdersLoading] = useState(false);
 
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedName, setEditedName] = useState('');
@@ -173,6 +210,88 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose }) 
       }
     } catch (error: any) {
       console.log('📍 Address fetch error:', error.message);
+    }
+  };
+
+  const fetchUserOrders = async () => {
+    if (!user) return;
+    
+    setOrdersLoading(true);
+    try {
+      console.log('📦 Fetching user orders...');
+      const token = await getValidAuthToken();
+
+      const response = await fetch('/api/user/orders', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      console.log('📦 Orders fetch response:', {
+        status: response.status,
+        ok: response.ok
+      });
+
+      if (response.status === 401) {
+        console.log('📦 Token expired or invalid, skipping orders fetch');
+        return;
+      }
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('📦 Orders data received:', data);
+        setOrders(data.orders || []);
+      } else {
+        console.log('📦 Orders fetch failed:', response.status);
+      }
+    } catch (error: any) {
+      console.log('📦 Orders fetch error:', error.message);
+    } finally {
+      setOrdersLoading(false);
+    }
+  };
+
+  const handleShowOrders = () => {
+    setShowOrders(true);
+    fetchUserOrders();
+  };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('tr-TR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    });
+  };
+
+  const formatPrice = (price: number) => {
+    return new Intl.NumberFormat('tr-TR', {
+      style: 'currency',
+      currency: 'TRY',
+    }).format(price);
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'pending': return 'bg-yellow-100 text-yellow-800';
+      case 'processing': return 'bg-blue-100 text-blue-800';
+      case 'shipped': return 'bg-purple-100 text-purple-800';
+      case 'delivered': return 'bg-green-100 text-green-800';
+      case 'cancelled': return 'bg-red-100 text-red-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case 'pending': return 'Yeni Sipariş';
+      case 'processing': return 'Hazırlanıyor';
+      case 'shipped': return 'Kargoya Verildi';
+      case 'delivered': return 'Teslim Edildi';
+      case 'cancelled': return 'İptal Edildi';
+      default: return status;
     }
   };
 
@@ -778,6 +897,9 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose }) 
     setIsEditingPhone(false);
     setIsEditingAddress(false);
     
+    setShowOrders(false);
+    setOrders([]);
+    
     onClose();
   };
 
@@ -794,7 +916,7 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose }) 
       >
         <div className="flex items-center justify-between p-6 border-b border-gray-100">
           <h2 className="text-2xl font-serif font-medium">
-            {user ? 'Hesabım' : 'Giriş Yap'}
+            {user ? (showOrders ? 'Siparişlerim' : 'Hesabım') : 'Giriş Yap'}
           </h2>
           <button
             onClick={handleClose}
@@ -1055,6 +1177,107 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose }) 
                 </form>
               )}
             </div>
+          ) : showOrders ? (
+            <div>
+              {/* Orders Header */}
+              <div className="flex items-center justify-between mb-6">
+                <button
+                  onClick={() => setShowOrders(false)}
+                  className="flex items-center space-x-2 text-gray-600 hover:text-gray-800 transition-colors"
+                >
+                  <ArrowLeft className="w-5 h-5" />
+                  <span className="text-sm font-medium">Geri Dön</span>
+                </button>
+                <h2 className="text-xl font-bold text-gray-800">Siparişlerim</h2>
+                <div className="w-16"></div> {/* Spacer */}
+              </div>
+
+              {/* Orders Content */}
+              {ordersLoading ? (
+                <div className="flex justify-center items-center py-8">
+                  <Loader2 className="w-8 h-8 animate-spin text-gray-500" />
+                  <span className="ml-2 text-gray-600">Siparişler yükleniyor...</span>
+                </div>
+              ) : orders.length === 0 ? (
+                <div className="text-center py-8">
+                  <ShoppingBag className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                  <p className="text-gray-500 text-lg font-medium">Henüz siparişiniz yok</p>
+                  <p className="text-gray-400 text-sm mt-2">İlk siparişinizi vermek için alışverişe başlayın!</p>
+                </div>
+              ) : (
+                <div className="space-y-4 max-h-96 overflow-y-auto">
+                  {orders.map((order) => (
+                    <div key={order.id} className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                      {/* Order Header */}
+                      <div className="flex items-center justify-between mb-3">
+                        <div>
+                          <h3 className="font-mono text-sm font-medium text-gray-900">#{order.order_id}</h3>
+                          <p className="text-xs text-gray-500 flex items-center mt-1">
+                            <Calendar className="w-3 h-3 mr-1" />
+                            {formatDate(order.created_at)}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(order.status)}`}>
+                            {getStatusText(order.status)}
+                          </span>
+                          <p className="text-sm font-bold text-gray-900 mt-1">{formatPrice(order.total_amount)}</p>
+                        </div>
+                      </div>
+
+                      {/* Order Items */}
+                      <div className="space-y-2">
+                        {order.order_items.slice(0, 2).map((item) => (
+                          <div key={item.id} className="flex items-center space-x-3 p-2 bg-gray-50 rounded-md">
+                            {item.products?.image_url ? (
+                              <img
+                                src={item.products.image_url}
+                                alt={item.product_name}
+                                className="w-10 h-10 rounded-md object-cover"
+                              />
+                            ) : (
+                              <div className="w-10 h-10 bg-gray-200 rounded-md flex items-center justify-center">
+                                <Package className="w-5 h-5 text-gray-400" />
+                              </div>
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-gray-900 truncate">{item.product_name}</p>
+                              <p className="text-xs text-gray-500">{item.quantity} adet × {formatPrice(item.unit_price)}</p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-sm font-medium text-gray-900">{formatPrice(item.total_price)}</p>
+                            </div>
+                          </div>
+                        ))}
+                        {order.order_items.length > 2 && (
+                          <div className="text-center py-1">
+                            <p className="text-xs text-gray-500">+{order.order_items.length - 2} daha fazla ürün</p>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Shipping Info */}
+                      {order.status === 'shipped' && (order.shipping_company || order.tracking_number) && (
+                        <div className="mt-3 pt-3 border-t border-gray-200">
+                          <div className="flex items-center justify-between text-sm">
+                            {order.shipping_company && (
+                              <span className="text-gray-600">
+                                <strong>Kargo:</strong> {order.shipping_company}
+                              </span>
+                            )}
+                            {order.tracking_number && (
+                              <span className="text-gray-600 font-mono">
+                                <strong>Takip:</strong> {order.tracking_number}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           ) : (
             <div>
               <div className="flex items-start space-x-4 mb-6 p-4 bg-gray-50 rounded-lg">
@@ -1121,22 +1344,13 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose }) 
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 mb-6">
-                <button className="flex items-center space-x-2 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                  <Package className="w-5 h-5 text-gray-600" />
-                  <span className="text-sm">Siparişlerim</span>
-                </button>
-                <button className="flex items-center space-x-2 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                  <Heart className="w-5 h-5 text-gray-600" />
-                  <span className="text-sm">Favorilerim</span>
-                </button>
-                <button className="flex items-center space-x-2 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                  <CreditCard className="w-5 h-5 text-gray-600" />
-                  <span className="text-sm">Ödeme</span>
-                </button>
-                <button className="flex items-center space-x-2 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                  <Settings className="w-5 h-5 text-gray-600" />
-                  <span className="text-sm">Ayarlar</span>
+              <div className="flex justify-center mb-6">
+                <button 
+                  onClick={handleShowOrders}
+                  className="flex items-center space-x-3 px-6 py-4 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors shadow-md"
+                >
+                  <Package className="w-6 h-6 text-white" />
+                  <span className="text-base font-medium">Siparişlerim</span>
                 </button>
               </div>
 

@@ -107,11 +107,11 @@ const Navbar = () => {
         <div className="container flex items-center justify-between max-w-[98%] mx-auto px-2 sm:px-4">
           {/* Left - Contact Info - Hidden on small mobile */}
           <div className="hidden sm:flex items-center space-x-3 lg:space-x-6">
-            <Link href="tel:+905324672418" className="text-xs sm:text-sm hover:text-white/80 transition-colors flex items-center space-x-1 sm:space-x-2">
+            <Link href="tel:+905313552271" className="text-xs sm:text-sm hover:text-white/80 transition-colors flex items-center space-x-1 sm:space-x-2">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 sm:h-4 sm:w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
               </svg>
-              <span className="hidden md:inline">+90 532 467 24 18</span>
+              <span className="hidden md:inline">+90 531 355 22 71</span>
             </Link>
             <Link href="mailto:info@mumdeco.com" className="text-xs sm:text-sm hover:text-white/80 transition-colors flex items-center space-x-1 sm:space-x-2">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 sm:h-4 sm:w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -121,16 +121,24 @@ const Navbar = () => {
             </Link>
           </div>
           
-          {/* Center - Promo Banner - Improved mobile text */}
-          <div className="flex-1 flex justify-center px-2">
-            <div className="flex items-center bg-white/5 px-2 sm:px-4 py-1 rounded text-center">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 sm:h-5 sm:w-5 mr-1 sm:mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7" />
-              </svg>
-              <span className="text-xs sm:text-sm font-medium">
-                <span className="hidden sm:inline">Yeni Üyelere Özel %20 İndirim: </span>
-                <span className="font-semibold">HOSGELDIN20</span>
-              </span>
+          {/* Center - Scrolling Banner */}
+          <div className="flex-1 flex items-center justify-center pl-32 pr-8 overflow-hidden relative" style={{
+            maskImage: 'linear-gradient(to right, transparent 0%, black 15%, black 85%, transparent 100%)',
+            WebkitMaskImage: 'linear-gradient(to right, transparent 0%, black 15%, black 85%, transparent 100%)'
+          }}>
+            <div className="animate-marquee whitespace-nowrap text-white flex" style={{
+              animation: 'marquee 25s linear infinite'
+            }}>
+              <div className="flex items-center pr-96">
+                <span className="mr-32">🔥 Mumdeco - Light The Way</span>
+                <span className="mr-32">📦 24 saat içinde kargo</span>
+                <span className="mr-32">🏷️ Çok yakında indirim kuponlarımızı buradan takip edebilirsiniz</span>
+              </div>
+              <div className="flex items-center pr-96">
+                <span className="mr-32">🔥 Mumdeco - Light The Way</span>
+                <span className="mr-32">📦 24 saat içinde kargo</span>
+                <span className="mr-32">🏷️ Çok yakında indirim kuponlarımızı buradan takip edebilirsiniz</span>
+              </div>
             </div>
           </div>
 
@@ -142,7 +150,7 @@ const Navbar = () => {
                 <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
               </svg>
             </a>
-            <a href="https://wa.me/+905324672418" target="_blank" rel="noopener noreferrer" className="hover:text-white/80 transition-colors p-1">
+            <a href="https://wa.me/+905313552271" target="_blank" rel="noopener noreferrer" className="hover:text-white/80 transition-colors p-1">
               <span className="sr-only">WhatsApp</span>
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 sm:h-5 sm:w-5" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/>
@@ -161,9 +169,9 @@ const Navbar = () => {
               <Image
                 src="/mumdeco_logo.png"
                 alt="MUMDECO Logo"
-                width={isScrolled ? 180 : 240}
-                height={isScrolled ? 60 : 80}
-                className={`transition-all duration-300 ${isScrolled ? 'w-32 h-auto sm:w-36 md:w-40' : 'w-36 h-auto sm:w-40 md:w-44'}`}
+                width={isScrolled ? 200 : 280}
+                height={isScrolled ? 67 : 93}
+                className={`transition-all duration-300 ${isScrolled ? 'w-36 h-auto sm:w-40 md:w-44' : 'w-40 h-auto sm:w-44 md:w-48'}`}
                 priority
               />
             </Link>
@@ -334,7 +342,7 @@ const Navbar = () => {
                   <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
                   </svg>
-                  <span>+90 532 467 24 18</span>
+                  <span>+90 531 355 22 71</span>
                 </div>
                 <div className="flex items-center text-sm text-gray-600">
                   <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">

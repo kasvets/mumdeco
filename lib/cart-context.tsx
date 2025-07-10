@@ -104,7 +104,11 @@ export const CartProvider = ({ children }: CartProviderProps) => {
   };
 
   const clearCart = () => {
+    console.log('🛒 Clearing cart - removing all items');
     setItems([]);
+    // localStorage'ı da açıkça temizle
+    localStorage.removeItem('mumdeco-cart');
+    localStorage.removeItem('mumdeco-cart-backup');
   };
 
   const getTotalItems = () => {

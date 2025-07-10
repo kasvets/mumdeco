@@ -40,7 +40,7 @@ export default function PaymentFailurePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen pt-24 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-500 mx-auto"></div>
           <p className="mt-4 text-gray-600">Ödeme bilgileri yükleniyor...</p>
@@ -50,7 +50,7 @@ export default function PaymentFailurePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <div className="min-h-screen bg-gray-50 pt-24 py-8">
       <Suspense fallback={
         <div className="min-h-screen bg-gray-50 flex items-center justify-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-500 mx-auto"></div>
@@ -165,15 +165,15 @@ export default function PaymentFailurePage() {
               </p>
               <p className="text-sm text-gray-500">
                 📞 Telefon: 
-                <a href="tel:+905324672418" className="text-blue-600 hover:text-blue-800 ml-1">
-                  +90 532 467 24 18
-                </a>
+                            <a href="tel:+905313552271" className="text-blue-600 hover:text-blue-800 ml-1">
+              +90 531 355 22 71
+            </a>
               </p>
               <p className="text-sm text-gray-500">
                 💬 WhatsApp: 
-                <a href="https://wa.me/905324672418" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 ml-1">
-                  +90 532 467 24 18
-                </a>
+                            <a href="https://wa.me/905313552271" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 ml-1">
+              +90 531 355 22 71
+            </a>
               </p>
             </div>
           </div>

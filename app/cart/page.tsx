@@ -64,6 +64,10 @@ export default function CartPage() {
 
     setIsCheckingOut(true);
     
+    // Sepeti backup al (hata durumunda geri yüklemek için)
+    const cartBackup = JSON.stringify(items);
+    localStorage.setItem('mumdeco-cart-backup', cartBackup);
+    
     try {
       // Sepet ürünlerini PayTR formatına çevir
       const paymentItems = items.map(item => ({
@@ -106,6 +110,13 @@ export default function CartPage() {
       if (result.success && result.data && result.data.iframeUrl) {
         console.log('Opening PayTR iframe:', result.data.iframeUrl);
         
+        // Ödeme işlemi başlatıldığında sepeti temizle
+        console.log('🛒 Payment process started - clearing cart');
+        clearCart();
+        
+        // Backup'ı temizle (artık gerekli değil)
+        localStorage.removeItem('mumdeco-cart-backup');
+        
         // Mevcut sayfada PayTR iframe'ini aç
         window.location.href = result.data.iframeUrl;
         
@@ -118,6 +129,19 @@ export default function CartPage() {
     } catch (error) {
       console.error('Ödeme hatası:', error);
       alert(`Ödeme işlemi sırasında hata oluştu: ${error instanceof Error ? error.message : 'Bilinmeyen hata'}`);
+      
+      // Hata durumunda cart backup'ı geri yükle
+      const cartBackup = localStorage.getItem('mumdeco-cart-backup');
+      if (cartBackup) {
+        try {
+          const backupItems = JSON.parse(cartBackup);
+          localStorage.setItem('mumdeco-cart', cartBackup);
+          localStorage.removeItem('mumdeco-cart-backup');
+          window.location.reload(); // Sayfayı yenile ki cart context güncellensin
+        } catch (backupError) {
+          console.error('Cart backup restore error:', backupError);
+        }
+      }
     } finally {
       setIsCheckingOut(false);
     }

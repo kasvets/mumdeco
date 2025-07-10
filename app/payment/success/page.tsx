@@ -4,6 +4,7 @@ import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { CheckCircleIcon, ArrowRightIcon, HomeIcon } from '@heroicons/react/24/outline';
 import Link from 'next/link';
+import { useCart } from '@/lib/cart-context';
 
 // Suspense ile sarmalanan SearchParams component
 function SearchParamsWrapper({ setOrderInfo }: {
@@ -31,6 +32,17 @@ export default function PaymentSuccessPage() {
   const [orderInfo, setOrderInfo] = useState<any>(null);
   const [countdown, setCountdown] = useState(5);
   const router = useRouter();
+  const { clearCart } = useCart();
+
+  // Sepeti temizle - ödeme başarılı olduğunda
+  useEffect(() => {
+    // Payment success page'e geldiğinde cart'ı temizle
+    console.log('🛒 Payment success page loaded - clearing cart');
+    clearCart();
+    
+    // Backup'ı da temizle
+    localStorage.removeItem('mumdeco-cart-backup');
+  }, [clearCart]);
 
   // Otomatik yönlendirme için countdown
   useEffect(() => {
@@ -134,9 +146,9 @@ export default function PaymentSuccessPage() {
               <a href="mailto:info@mumdeco.com" className="text-blue-600 hover:text-blue-800 ml-1">
                 info@mumdeco.com
               </a> | 
-              <a href="tel:+905324672418" className="text-blue-600 hover:text-blue-800 ml-1">
-                +90 532 467 24 18
-              </a>
+                          <a href="tel:+905313552271" className="text-blue-600 hover:text-blue-800 ml-1">
+              +90 531 355 22 71
+            </a>
             </p>
           </div>
         </div>

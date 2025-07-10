@@ -10,70 +10,46 @@ import { fetchFeaturedProducts } from "./products/data/products";
 import { useState, useEffect } from "react";
 import { Product } from "@/lib/supabase";
 
-const collections = [
-  {
-    id: 1,
-    name: "Model-1 Serisi",
-    description: "Özel tasarım ve benzersiz form mumlar",
-    image: "/Model1/Adriatic/m1a1.webp",
-    link: "/collections/model-1"
-  },
-  {
-    id: 2,
-    name: "Model-2 Serisi",
-    description: "Modern estetik ve şık tasarım mumlar",
-    image: "/Model1/Adriatic/m1a2.webp",
-    link: "/collections/model-2"
-  },
-  {
-    id: 3,
-    name: "Model-3 Serisi",
-    description: "Sanatsal form ve zarif görünüm mumlar",
-    image: "/Model1/Adriatic/m1a3.webp",
-    link: "/collections/model-3"
-  },
-  {
-    id: 4,
-    name: "Model-4 Serisi",
-    description: "Premium kalite ve lüks tasarım mumlar",
-    image: "/Model1/Adriatic/m1a4.webp",
-    link: "/collections/model-4"
-  },
-  {
-    id: 5,
-    name: "Model-5 Serisi",
-    description: "Yenilikçi form ve çağdaş stil mumlar",
-    image: "/Model1/Adriatic/m1a5.webp",
-    link: "/collections/model-5"
-  },
-  {
-    id: 6,
-    name: "Model-6 Serisi",
-    description: "Özel koleksiyon ve sınırlı üretim mumlar",
-    image: "/Model1/Adriatic/m1a1.webp",
-    link: "/collections/model-6"
-  }
-];
+interface Collection {
+  id: string;
+  name: string;
+  description: string;
+  image: string | null;
+  link: string;
+  productCount: number;
+}
 
 export default function Home() {
   const [bestSellers, setBestSellers] = useState<Product[]>([]);
+  const [collections, setCollections] = useState<Collection[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const loadProducts = async () => {
+    const loadData = async () => {
       try {
-        console.log('🔍 Loading featured products...');
+        console.log('🔍 Loading featured products and collections...');
+        
+        // Load featured products
         const products = await fetchFeaturedProducts(10);
         console.log('🔍 Featured products loaded:', products);
         setBestSellers(products);
+        
+        // Load collections
+        const collectionsResponse = await fetch('/api/collections');
+        const collectionsData = await collectionsResponse.json();
+        console.log('🔍 Collections loaded:', collectionsData);
+        
+        if (collectionsData.status === 'success') {
+          setCollections(collectionsData.collections);
+        }
       } catch (error) {
-        console.error('🔍 Error loading featured products:', error);
+        console.error('🔍 Error loading data:', error);
       } finally {
         setLoading(false);
       }
     };
 
-    loadProducts();
+    loadData();
   }, []);
 
   if (loading) {

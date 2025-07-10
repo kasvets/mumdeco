@@ -58,7 +58,6 @@ export default function FilterSidebar({
 }: FilterSidebarProps) {
   const [expandedSections, setExpandedSections] = useState({
     category: true,
-    price: false,
     sort: false,
     other: false,
   });
@@ -291,62 +290,7 @@ export default function FilterSidebar({
               )}
             </div>
 
-            {/* Price Range Filter */}
-            <div className="bg-gray-50/50 rounded-lg p-3 border border-gray-100">
-              <button
-                onClick={() => toggleSection('price')}
-                className="flex items-center justify-between w-full mb-2 p-2 hover:bg-white rounded-lg transition-colors"
-              >
-                <h3 className="text-base font-semibold text-gray-900 flex items-center gap-2">
-                  <div className="w-1.5 h-1.5 bg-green-500 rounded-full"></div>
-                  Fiyat Aralığı
-                </h3>
-                <div className={`p-1 rounded-full transition-transform duration-200 ${
-                  expandedSections.price ? 'rotate-180' : ''
-                }`}>
-                  <ChevronDown className="w-4 h-4 text-gray-500" />
-                </div>
-              </button>
-              
-              {expandedSections.price && (
-                <div className="space-y-3 animate-in slide-in-from-top-1 duration-200">
-                  <div className="px-2">
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-sm text-gray-600">
-                        {formatPrice(filters.priceRange[0])}
-                      </span>
-                      <span className="text-sm text-gray-600">
-                        {formatPrice(filters.priceRange[1])}
-                      </span>
-                    </div>
-                    
-                    {/* Price Range Slider */}
-                    <div className="relative">
-                      <input
-                        type="range"
-                        min="0"
-                        max="1000"
-                        value={filters.priceRange[0]}
-                        onChange={(e) => updateFilters({ 
-                          priceRange: [parseInt(e.target.value), filters.priceRange[1]] 
-                        })}
-                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                      />
-                      <input
-                        type="range"
-                        min="0"
-                        max="1000"
-                        value={filters.priceRange[1]}
-                        onChange={(e) => updateFilters({ 
-                          priceRange: [filters.priceRange[0], parseInt(e.target.value)] 
-                        })}
-                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer absolute top-0"
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
+
 
             {/* Sort Options */}
             <div className="bg-gray-50/50 rounded-lg p-3 border border-gray-100">

@@ -14,11 +14,12 @@ import 'swiper/css/navigation';
 const SLIDE_DELAY = 5000;
 
 type Collection = {
-  id: number;
+  id: string;
   name: string;
   description: string;
-  image: string;
+  image: string | null;
   link: string;
+  productCount: number;
 }
 
 interface CollectionSliderProps {
@@ -53,16 +54,22 @@ export default function CollectionSlider({ collections }: CollectionSliderProps)
                 >
                   <div className="aspect-[4/5] relative overflow-hidden rounded-lg">
                     <Image
-                      src={collection.image}
+                      src={collection.image || '/mumdeco2.jpg'}
                       alt={collection.name}
                       fill
                       className="object-cover transition-transform duration-500 group-hover:scale-110"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
                     
-                    <div className="absolute bottom-0 left-0 right-0 p-6 text-white">
-                      <h3 className="text-xl font-serif mb-2">{collection.name}</h3>
-                      <p className="text-sm text-white/80">{collection.description}</p>
+                    <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/70 via-black/30 to-transparent">
+                      <h3 className="text-xl font-serif mb-2 text-white">{collection.name}</h3>
+                      <p className="text-sm text-white/90">
+                        {collection.description}
+                        {collection.productCount > 0 && (
+                          <span className="block mt-1 text-xs text-white/70">
+                            {collection.productCount} ürün
+                          </span>
+                        )}
+                      </p>
                     </div>
                   </div>
                 </Link>
