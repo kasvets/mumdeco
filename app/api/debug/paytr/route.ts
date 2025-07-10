@@ -56,10 +56,10 @@ export async function GET(request: NextRequest) {
     }
     
     // PayTR merchant ID kontrolü
-    if (PAYTR_CONFIG.MERCHANT_ID === '594162') {
-      debugInfo.recommendations.push('⚠️ Test merchant ID kullanılıyor - Canlı merchant ID gerekli');
+    if (PAYTR_CONFIG.MERCHANT_ID && PAYTR_CONFIG.MERCHANT_ID !== 'TEST_MERCHANT_ID') {
+      debugInfo.recommendations.push('✅ Merchant ID ayarlanmış');
     } else {
-      debugInfo.recommendations.push('✅ Canlı merchant ID kullanılıyor');
+      debugInfo.recommendations.push('⚠️ Merchant ID ayarlanmamış');
     }
     
     return NextResponse.json(debugInfo);

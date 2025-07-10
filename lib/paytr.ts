@@ -21,10 +21,10 @@ export const PAYTR_CONFIG = {
   SUCCESS_URL: process.env.PAYTR_SUCCESS_URL || `https://www.mumdeco.com/payment/success`,
   FAIL_URL: process.env.PAYTR_FAIL_URL || `https://www.mumdeco.com/payment/failure`,
   CALLBACK_URL: process.env.PAYTR_CALLBACK_URL || `https://www.mumdeco.com/api/paytr/callback`,
-  // PayTR Test Credentials (fallback)
-  TEST_MERCHANT_ID: '594162',
-  TEST_MERCHANT_KEY: 'd2BeXLTPQD6AxkJ',
-  TEST_MERCHANT_SALT: '6KbeRjCKymsKdk8',
+  // PayTR Test Credentials (fallback) - Artık kullanılmıyor
+  TEST_MERCHANT_ID: 'TEST_MERCHANT_ID',
+  TEST_MERCHANT_KEY: 'TEST_MERCHANT_KEY',
+  TEST_MERCHANT_SALT: 'TEST_MERCHANT_SALT',
 };
 
 // PayTR Sepet Ürünü Interface
