@@ -364,16 +364,16 @@ const Navbar = () => {
             <div className="py-4 space-y-4 bg-gray-50 rounded-lg border border-gray-200">
               {/* Mobile Navigation Links */}
               <div className="space-y-2 px-4">
-                <Link href="/" className="block text-lg font-serif font-medium hover:text-primary py-3 px-3 rounded-lg hover:bg-white transition-all">
+                <Link href="/" onClick={() => setIsOpen(false)} className="block text-lg font-serif font-medium hover:text-primary py-3 px-3 rounded-lg hover:bg-white transition-all">
                   Anasayfa
                 </Link>
-                <Link href="/products" className="block text-lg font-serif font-medium hover:text-primary py-3 px-3 rounded-lg hover:bg-white transition-all">
+                <Link href="/products" onClick={() => setIsOpen(false)} className="block text-lg font-serif font-medium hover:text-primary py-3 px-3 rounded-lg hover:bg-white transition-all">
                   Ürünler
                 </Link>
-                <Link href="/about" className="block text-lg font-serif font-medium hover:text-primary py-3 px-3 rounded-lg hover:bg-white transition-all">
+                <Link href="/about" onClick={() => setIsOpen(false)} className="block text-lg font-serif font-medium hover:text-primary py-3 px-3 rounded-lg hover:bg-white transition-all">
                   Hakkımızda
                 </Link>
-                <Link href="/blog" className="block text-lg font-serif font-medium hover:text-primary py-3 px-3 rounded-lg hover:bg-white transition-all">
+                <Link href="/blog" onClick={() => setIsOpen(false)} className="block text-lg font-serif font-medium hover:text-primary py-3 px-3 rounded-lg hover:bg-white transition-all">
                   Blog
                 </Link>
               </div>
