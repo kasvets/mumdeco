@@ -85,6 +85,40 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose }) 
     acceptTerms: false,
   });
 
+  // Handle mobile keyboard behavior
+  useEffect(() => {
+    if (!isOpen) return;
+    
+    const handleResize = () => {
+      // Force scroll to top when keyboard appears to prevent weird positioning
+      if (window.innerHeight < 600) {
+        window.scrollTo(0, 0);
+      }
+    };
+
+    const handleFocusIn = (e: FocusEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
+        // Small delay to allow keyboard to appear
+        setTimeout(() => {
+          target.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'center',
+            inline: 'nearest'
+          });
+        }, 300);
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+    document.addEventListener('focusin', handleFocusIn);
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      document.removeEventListener('focusin', handleFocusIn);
+    };
+  }, [isOpen]);
+
   const getValidAuthToken = async () => {
     try {
       console.log('🔑 Getting auth token...');
@@ -907,12 +941,20 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose }) 
 
   return (
     <div 
-      className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-start justify-center p-4 pt-8 sm:items-center sm:pt-4"
       onClick={handleBackdropClick}
+      style={{
+        minHeight: '100dvh', // Use dynamic viewport height on modern browsers, fallback to 100vh
+      }}
     >
       <div 
         key={`modal-${forceRender}-${user?.id || 'nouser'}-${activeTab}`}
-        className="bg-white rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto shadow-2xl"
+        className="bg-white rounded-2xl max-w-md w-full max-h-[calc(100vh-4rem)] sm:max-h-[90vh] overflow-y-auto shadow-2xl"
+        style={{
+          // Prevent modal from jumping when keyboard opens
+          minHeight: 'auto',
+          maxHeight: 'calc(100dvh - 4rem)', // Modern browsers with fallback
+        }}
       >
         <div className="flex items-center justify-between p-6 border-b border-gray-100">
           <h2 className="text-2xl font-serif font-medium">
@@ -1009,8 +1051,9 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose }) 
                       type="email"
                       value={loginForm.email}
                       onChange={(e) => setLoginForm({...loginForm, email: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent"
+                      className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent text-base"
                       placeholder="ornek@email.com"
+                      style={{ fontSize: '16px' }} // Prevent zoom on iOS
                       required
                     />
                   </div>
@@ -1022,8 +1065,9 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose }) 
                       type="password"
                       value={loginForm.password}
                       onChange={(e) => setLoginForm({...loginForm, password: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent"
+                      className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent text-base"
                       placeholder="••••••••"
+                      style={{ fontSize: '16px' }} // Prevent zoom on iOS
                       required
                     />
                   </div>
@@ -1092,8 +1136,9 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose }) 
                       type="text"
                       value={registerForm.fullName}
                       onChange={(e) => setRegisterForm({...registerForm, fullName: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent"
+                      className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent text-base"
                       placeholder="Adınız Soyadınız"
+                      style={{ fontSize: '16px' }} // Prevent zoom on iOS
                       required
                     />
                   </div>
@@ -1105,8 +1150,9 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose }) 
                       type="email"
                       value={registerForm.email}
                       onChange={(e) => setRegisterForm({...registerForm, email: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent"
+                      className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent text-base"
                       placeholder="ornek@email.com"
+                      style={{ fontSize: '16px' }} // Prevent zoom on iOS
                       required
                     />
                   </div>
@@ -1118,8 +1164,9 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose }) 
                       type="tel"
                       value={registerForm.phone}
                       onChange={(e) => setRegisterForm({...registerForm, phone: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent"
+                      className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent text-base"
                       placeholder="+90 5XX XXX XX XX"
+                      style={{ fontSize: '16px' }} // Prevent zoom on iOS
                     />
                   </div>
                   <div>
@@ -1130,8 +1177,9 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose }) 
                       type="password"
                       value={registerForm.password}
                       onChange={(e) => setRegisterForm({...registerForm, password: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent"
+                      className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent text-base"
                       placeholder="••••••••"
+                      style={{ fontSize: '16px' }} // Prevent zoom on iOS
                       required
                     />
                   </div>
@@ -1143,8 +1191,9 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose }) 
                       type="password"
                       value={registerForm.confirmPassword}
                       onChange={(e) => setRegisterForm({...registerForm, confirmPassword: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent"
+                      className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent text-base"
                       placeholder="••••••••"
+                      style={{ fontSize: '16px' }} // Prevent zoom on iOS
                       required
                     />
                   </div>
