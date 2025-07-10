@@ -250,12 +250,7 @@ export default function CartPage() {
       if (result.success && result.data && result.data.iframeUrl) {
         console.log('Opening PayTR iframe:', result.data.iframeUrl);
         
-        // Ödeme işlemi başlatıldığında sepeti temizle
-        console.log('🛒 Payment process started - clearing cart');
-        clearCart();
-        
-        // Backup'ı temizle (artık gerekli değil)
-        localStorage.removeItem('mumdeco-cart-backup');
+        // Sepet temizleme işlemi ödeme başarılı olduğunda yapılacak (success sayfasında)
         
         // Mevcut sayfada PayTR iframe'ini aç
         window.location.href = result.data.iframeUrl;
@@ -297,7 +292,7 @@ export default function CartPage() {
 
   if (items.length === 0) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 pt-8">        
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 pt-48 md:pt-60 lg:pt-72">        
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
             {/* Empty cart illustration */}
@@ -374,7 +369,7 @@ export default function CartPage() {
 
   if (authLoading || profileLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 py-8 sm:py-12 pt-8">
+      <div className="min-h-screen bg-gray-50 py-8 sm:py-12 pt-48 md:pt-60 lg:pt-72">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-amber-500 mx-auto"></div>
@@ -386,7 +381,7 @@ export default function CartPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 sm:py-12 pt-8">
+    <div className="min-h-screen bg-gray-50 py-8 sm:py-12 pt-48 md:pt-60 lg:pt-72">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="mb-6 sm:mb-8">
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Sepetim</h1>

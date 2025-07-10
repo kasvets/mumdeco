@@ -66,6 +66,7 @@ export async function GET(request: NextRequest) {
     const adminSupabase = createAdminSupabaseClient();
     
     // Fetch orders for current user (both by user_id and email)
+    // Only show orders with successful payment
     const { data: orders, error } = await adminSupabase
       .from('orders')
       .select(`
@@ -84,6 +85,7 @@ export async function GET(request: NextRequest) {
         )
       `)
       .or(`user_id.eq.${user.id},customer_email.eq.${user.email}`)
+      .eq('payment_status', 'success')
       .order('created_at', { ascending: false });
 
     if (error) {
