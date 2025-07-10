@@ -30,6 +30,7 @@ interface FilterSidebarProps {
   onFiltersChange: (filters: ProductFilters) => void;
   onClose: () => void;
   productsCount: number;
+  isVisible: boolean;
 }
 
 const categories = [
@@ -54,7 +55,8 @@ export default function FilterSidebar({
   filters, 
   onFiltersChange, 
   onClose, 
-  productsCount 
+  productsCount,
+  isVisible 
 }: FilterSidebarProps) {
   const [expandedSections, setExpandedSections] = useState({
     category: true,
@@ -102,13 +104,13 @@ export default function FilterSidebar({
   // Prevent body scroll when mobile sidebar is open
   useEffect(() => {
     const isMobile = window.innerWidth < 1024;
-    if (isMobile) {
+    if (isMobile && isVisible) {
       document.body.style.overflow = 'hidden';
       return () => {
         document.body.style.overflow = 'unset';
       };
     }
-  }, []);
+  }, [isVisible]);
 
   // Group products by category
   const productsByCategory = products.reduce((acc: Record<string, Product[]>, product) => {

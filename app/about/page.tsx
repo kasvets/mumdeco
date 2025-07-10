@@ -29,7 +29,7 @@ export default function About() {
                   sadece bir ürün değil, bir yaşam felsefesi sunuyor.
                 </p>
                 <p className="text-gray-700 leading-relaxed font-light text-left">
-                  "Her mumumda bir hikaye var, her kokusuyla bir anı... Ellerimle şekillendirdiğim bu eserler, 
+                  "Her mumda bir hikaye var, her kokusuyla bir anı... Ellerimle şekillendirdiğim bu eserler, 
                   sizin yaşam alanlarınızda huzur ve sıcaklık kaynağı olsun" diyen Miray Özet, 
                   bu vizyonuyla Mumdeco'yu hayata geçirdi.
                 </p>

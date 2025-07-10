@@ -223,6 +223,7 @@ export default function ProductsContent() {
             onFiltersChange={setFilters}
             onClose={closeFilters}
             productsCount={filteredProducts.length}
+            isVisible={showFilters}
           />
         </div>
 
