@@ -16,8 +16,8 @@ export const PAYTR_CONFIG = {
   MERCHANT_ID: process.env.PAYTR_MERCHANT_ID || '',
   MERCHANT_KEY: process.env.PAYTR_MERCHANT_KEY || '',
   MERCHANT_SALT: process.env.PAYTR_MERCHANT_SALT || '',
-  TEST_MODE: parseInt(process.env.PAYTR_TEST_MODE || '1'),
-  DEBUG_MODE: parseInt(process.env.PAYTR_DEBUG_MODE || '1'),
+  TEST_MODE: 0, // Canlı mod - sabit olarak 0 yapıldı
+  DEBUG_MODE: 0, // Debug mode kapalı - production için
   SUCCESS_URL: process.env.PAYTR_SUCCESS_URL || `https://www.mumdeco.com/payment/success`,
   FAIL_URL: process.env.PAYTR_FAIL_URL || `https://www.mumdeco.com/payment/failure`,
   CALLBACK_URL: process.env.PAYTR_CALLBACK_URL || `https://www.mumdeco.com/api/paytr/callback`,
@@ -628,8 +628,8 @@ export function logPayTRTransaction(
 
 // PayTR Environment Kontrolü
 export function isPayTRTestMode(): boolean {
-  // Sadece PAYTR_TEST_MODE değişkenini kontrol et, NODE_ENV'i karıştırma
-  return process.env.PAYTR_TEST_MODE === '1';
+  // Sabit olarak false döndür - canlı mod
+  return false;
 }
 
 // PayTR Konfigürasyon Bilgilerini Al (Güvenli)
@@ -642,7 +642,7 @@ export function getPayTRConfigInfo(): {
 } {
   return {
     merchant_id: PAYTR_CONFIG.MERCHANT_ID,
-    test_mode: PAYTR_CONFIG.TEST_MODE === 1,
+    test_mode: false, // Sabit olarak false - canlı mod
     has_credentials: !!(PAYTR_CONFIG.MERCHANT_ID && PAYTR_CONFIG.MERCHANT_KEY && PAYTR_CONFIG.MERCHANT_SALT),
     success_url: PAYTR_CONFIG.SUCCESS_URL,
     fail_url: PAYTR_CONFIG.FAIL_URL
