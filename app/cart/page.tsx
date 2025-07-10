@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useCart } from '@/lib/cart-context';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Minus, Plus, Trash2, ShoppingBag, ArrowLeft, CreditCard, X, User, Phone, MapPin, Mail } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { User as AuthUser } from '@supabase/supabase-js';
+import { useAuth } from '@/lib/auth-context';
 
 interface CustomerInfo {
   name: string;
@@ -17,6 +18,7 @@ interface CustomerInfo {
 
 export default function CartPage() {
   const { items, updateQuantity, removeFromCart, clearCart, getSubtotal, getVAT, getTotal } = useCart();
+  const { user, userProfile, loading: authLoading } = useAuth();
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [showCustomerModal, setShowCustomerModal] = useState(false);
   const [customerInfo, setCustomerInfo] = useState<CustomerInfo>({
@@ -25,27 +27,124 @@ export default function CartPage() {
     phone: '',
     address: ''
   });
-  const [user, setUser] = useState<AuthUser | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [profileLoading, setProfileLoading] = useState(false);
+  
+  // Ref for click-outside functionality
+  const customerModalRef = useRef<HTMLDivElement>(null);
+
+  // Handle click outside customer modal and prevent background scroll
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (customerModalRef.current && !customerModalRef.current.contains(event.target as Node)) {
+        setShowCustomerModal(false);
+      }
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setShowCustomerModal(false);
+      }
+    };
+
+    if (showCustomerModal) {
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = 'unset';
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = 'unset';
+    };
+  }, [showCustomerModal]);
 
   useEffect(() => {
-    const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      setUser(user);
+    const loadUserProfile = async () => {
+      console.log('🔍 Cart: Auth loading:', authLoading, 'User:', !!user, user?.email);
       
-      if (user) {
+      if (authLoading) {
+        console.log('🔍 Cart: Auth still loading, waiting...');
+        return;
+      }
+      
+      if (!user) {
+        console.log('🔍 Cart: No user found, clearing customer info');
+        setCustomerInfo({
+          name: '',
+          email: '',
+          phone: '',
+          address: ''
+        });
+        return;
+      }
+      
+      console.log('🔍 Cart: User is logged in, fetching profile...');
+      setProfileLoading(true);
+      
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const authToken = session?.access_token || user.id;
+        
+        const response = await fetch('/api/user/profile', {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${authToken}`,
+          },
+        });
+
+        if (response.ok) {
+          const profileData = await response.json();
+          console.log('📍 Cart: Profile data loaded:', profileData);
+          
+          // Format address from profile data
+          let formattedAddress = '';
+          if (profileData.address_line1) {
+            formattedAddress = profileData.address_line1;
+            if (profileData.district) {
+              formattedAddress += `, ${profileData.district}`;
+            }
+            if (profileData.city) {
+              formattedAddress += `/${profileData.city}`;
+            }
+          }
+          
+          setCustomerInfo({
+            name: profileData.full_name || user.user_metadata?.full_name || '',
+            email: profileData.email || user.email || '',
+            phone: profileData.phone || user.user_metadata?.phone || '',
+            address: formattedAddress || user.user_metadata?.address || ''
+          });
+        } else {
+          console.log('📍 Cart: Profile fetch failed, using user metadata');
+          // Fallback to user metadata if profile fetch fails
+          setCustomerInfo({
+            name: user.user_metadata?.full_name || '',
+            email: user.email || '',
+            phone: user.user_metadata?.phone || '',
+            address: user.user_metadata?.address || ''
+          });
+        }
+      } catch (error) {
+        console.error('📍 Cart: Profile fetch error:', error);
+        // Fallback to user metadata on error
         setCustomerInfo({
           name: user.user_metadata?.full_name || '',
           email: user.email || '',
           phone: user.user_metadata?.phone || '',
           address: user.user_metadata?.address || ''
         });
+      } finally {
+        setProfileLoading(false);
       }
-      setLoading(false);
     };
     
-    getUser();
-  }, []);
+    loadUserProfile();
+  }, [user, authLoading]);
 
   const handleQuantityChange = (productId: number, newQuantity: number) => {
     if (newQuantity < 1) return;
@@ -53,6 +152,47 @@ export default function CartPage() {
   };
 
   const handleCheckout = async () => {
+    // Refresh user profile before opening modal to ensure latest address info
+    if (user) {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const authToken = session?.access_token || user.id;
+        
+        const response = await fetch('/api/user/profile', {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${authToken}`,
+          },
+        });
+
+        if (response.ok) {
+          const profileData = await response.json();
+          console.log('📍 Cart: Refreshed profile data before checkout:', profileData);
+          
+          // Format address from profile data
+          let formattedAddress = '';
+          if (profileData.address_line1) {
+            formattedAddress = profileData.address_line1;
+            if (profileData.district) {
+              formattedAddress += `, ${profileData.district}`;
+            }
+            if (profileData.city) {
+              formattedAddress += `/${profileData.city}`;
+            }
+          }
+          
+          setCustomerInfo({
+            name: profileData.full_name || user.user_metadata?.full_name || '',
+            email: profileData.email || user.email || '',
+            phone: profileData.phone || user.user_metadata?.phone || '',
+            address: formattedAddress || user.user_metadata?.address || ''
+          });
+        }
+      } catch (error) {
+        console.error('📍 Cart: Profile refresh error before checkout:', error);
+      }
+    }
+    
     setShowCustomerModal(true);
   };
 
@@ -232,7 +372,7 @@ export default function CartPage() {
     );
   }
 
-  if (loading) {
+  if (authLoading || profileLoading) {
     return (
       <div className="min-h-screen bg-gray-50 py-8 sm:py-12 pt-8">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -419,7 +559,7 @@ export default function CartPage() {
       {/* Customer Information Modal */}
       {showCustomerModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
+          <div ref={customerModalRef} className="bg-white rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-xl font-semibold text-gray-900">Müşteri Bilgileri</h2>
@@ -430,12 +570,79 @@ export default function CartPage() {
                   <X className="w-6 h-6" />
                 </button>
               </div>
+              
+              {/* Debug Info - Remove this after testing */}
+              <div className="mb-4 p-2 bg-gray-100 rounded text-xs">
+                <p>Debug: User: {!!user ? 'Yes' : 'No'} | Email: {user?.email} | Auth Loading: {authLoading ? 'Yes' : 'No'}</p>
+              </div>
 
               {!user && (
                 <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                   <p className="text-sm text-blue-700">
                     <strong>Misafir Sipariş:</strong> Hesabınız yoksa da sipariş verebilirsiniz. 
                     Sipariş takibi için e-posta adresinizi kaydedin.
+                  </p>
+                </div>
+              )}
+
+              {user && (customerInfo.name || customerInfo.phone || customerInfo.address) && (
+                <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm text-green-700">
+                      <strong>Kayıtlı Adres:</strong> Profil bilgileriniz otomatik olarak dolduruldu. 
+                      Gerekirse düzenleyebilirsiniz.
+                    </p>
+                    <button
+                      onClick={async () => {
+                        try {
+                          const { data: { session } } = await supabase.auth.getSession();
+                          const authToken = session?.access_token || user.id;
+                          
+                          const response = await fetch('/api/user/profile', {
+                            method: 'GET',
+                            headers: {
+                              'Authorization': `Bearer ${authToken}`,
+                            },
+                          });
+
+                          if (response.ok) {
+                            const profileData = await response.json();
+                            
+                            let formattedAddress = '';
+                            if (profileData.address_line1) {
+                              formattedAddress = profileData.address_line1;
+                              if (profileData.district) {
+                                formattedAddress += `, ${profileData.district}`;
+                              }
+                              if (profileData.city) {
+                                formattedAddress += `/${profileData.city}`;
+                              }
+                            }
+                            
+                            setCustomerInfo({
+                              name: profileData.full_name || user.user_metadata?.full_name || '',
+                              email: profileData.email || user.email || '',
+                              phone: profileData.phone || user.user_metadata?.phone || '',
+                              address: formattedAddress || user.user_metadata?.address || ''
+                            });
+                          }
+                        } catch (error) {
+                          console.error('Profile refresh error:', error);
+                        }
+                      }}
+                      className="text-xs bg-green-100 hover:bg-green-200 text-green-700 px-2 py-1 rounded"
+                    >
+                      Yenile
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {user && !customerInfo.address && (
+                <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                  <p className="text-sm text-amber-700">
+                    <strong>Adres Bilgisi Yok:</strong> Profilinizde kayıtlı adres bulunmamaktadır. 
+                    Lütfen teslimat adresinizi girin.
                   </p>
                 </div>
               )}

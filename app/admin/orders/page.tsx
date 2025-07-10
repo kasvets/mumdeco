@@ -320,7 +320,13 @@ export default function AdminOrdersPage() {
 
     if (selectedOrder) {
       document.addEventListener('keydown', handleEscape);
-      return () => document.removeEventListener('keydown', handleEscape);
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.removeEventListener('keydown', handleEscape);
+        document.body.style.overflow = 'unset';
+      };
+    } else {
+      document.body.style.overflow = 'unset';
     }
   }, [selectedOrder]);
 

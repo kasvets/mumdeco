@@ -85,9 +85,15 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose }) 
     acceptTerms: false,
   });
 
-  // Handle mobile keyboard behavior
+  // Handle mobile keyboard behavior and prevent background scroll
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) {
+      document.body.style.overflow = 'unset';
+      return;
+    }
+    
+    // Prevent background scrolling when modal is open
+    document.body.style.overflow = 'hidden';
     
     const handleResize = () => {
       // Force scroll to top when keyboard appears to prevent weird positioning
@@ -110,14 +116,24 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose }) 
       }
     };
 
+    // Handle ESC key to close modal
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onClose();
+      }
+    };
+
     window.addEventListener('resize', handleResize);
     document.addEventListener('focusin', handleFocusIn);
+    document.addEventListener('keydown', handleKeyDown);
 
     return () => {
       window.removeEventListener('resize', handleResize);
       document.removeEventListener('focusin', handleFocusIn);
+      document.removeEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = 'unset';
     };
-  }, [isOpen]);
+  }, [isOpen, onClose]);
 
   const getValidAuthToken = async () => {
     try {

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
@@ -19,6 +19,10 @@ const Navbar = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [mobileSearchQuery, setMobileSearchQuery] = useState('');
 
+  // Refs for click-outside functionality
+  const mobileMenuRef = useRef<HTMLDivElement>(null);
+  const mobileSearchRef = useRef<HTMLDivElement>(null);
+
   // Debug: Auth state'i kontrol et
   useEffect(() => {
     console.log('🔍 NAVBAR: Auth state:', {
@@ -30,7 +34,45 @@ const Navbar = () => {
       userMetadataName: user?.user_metadata?.full_name
     });
   }, [loading, user, userProfile]);
-  
+
+  // Handle click outside mobile menu
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (mobileMenuRef.current && !mobileMenuRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    } else {
+      document.removeEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isOpen]);
+
+  // Handle click outside mobile search
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (mobileSearchRef.current && !mobileSearchRef.current.contains(event.target as Node)) {
+        setShowMobileSearch(false);
+      }
+    };
+
+    if (showMobileSearch) {
+      document.addEventListener('mousedown', handleClickOutside);
+    } else {
+      document.removeEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showMobileSearch]);
+
   // Handle scroll effect
   useEffect(() => {
     const handleScroll = () => {
@@ -268,7 +310,7 @@ const Navbar = () => {
 
           {/* Mobile Search Bar */}
           {showMobileSearch && (
-            <div className="md:hidden mt-4 animate-in slide-in-from-top-1 duration-200">
+            <div ref={mobileSearchRef} className="md:hidden mt-4 animate-in slide-in-from-top-1 duration-200">
               <form onSubmit={(e) => handleSearchSubmit(e, true)} className="relative">
                 <input
                   type="text"
@@ -316,7 +358,7 @@ const Navbar = () => {
           </div>
 
           {/* Mobile Menu */}
-          <div className={`md:hidden transition-all duration-300 overflow-hidden ${
+          <div ref={mobileMenuRef} className={`md:hidden transition-all duration-300 overflow-hidden ${
             isOpen ? 'max-h-screen opacity-100 visible mt-4' : 'max-h-0 opacity-0 invisible'
           }`}>
             <div className="py-4 space-y-4 bg-gray-50 rounded-lg border border-gray-200">
