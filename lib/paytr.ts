@@ -117,14 +117,19 @@ export function calculatePayTRHash(
   // PayTR token oluştur (salt ile birlikte)
   const paytr_token = hashSTR + merchant_salt;
   
-  console.log('[PayTR HASH] Hash String:', hashSTR);
-  console.log('[PayTR HASH] PayTR Token (hashSTR + salt):', paytr_token);
-  console.log('[PayTR HASH] Secret Key (merchant_key):', merchant_key);
+  // Production'da detaylı hash loglarını kısıtla
+  if (process.env.NODE_ENV === 'development') {
+    console.log('[PayTR HASH] Hash String:', hashSTR);
+    console.log('[PayTR HASH] PayTR Token (hashSTR + salt):', paytr_token);
+    console.log('[PayTR HASH] Secret Key (merchant_key):', merchant_key);
+  }
   
   // HMAC-SHA256 hesaplama
   const token = crypto.createHmac('sha256', merchant_key).update(paytr_token).digest('base64');
   
-  console.log('[PayTR HASH] Final Token:', token);
+  if (process.env.NODE_ENV === 'development') {
+    console.log('[PayTR HASH] Final Token:', token);
+  }
   
   return token;
 }
@@ -420,7 +425,10 @@ async function getPayTRTokenInternal(
     });
     logPayTRTransaction('REQUEST', formDataDebug, 'PayTR API Form Data');
     
-    const response = await fetch(PAYTR_CONFIG.TEST_URL, {
+    // Test mode veya production mode'a göre doğru URL'yi kullan
+    const apiUrl = test_mode === 1 ? PAYTR_CONFIG.TEST_URL : PAYTR_CONFIG.PRODUCTION_URL;
+    
+    const response = await fetch(apiUrl, {
       method: 'POST',
       body: formParams,
       headers: {
@@ -441,12 +449,15 @@ async function getPayTRTokenInternal(
       headers: Object.fromEntries(response.headers.entries())
     }, 'PayTR API Response');
     
-    console.log('=== PayTR Full Response ===');
-    console.log('Status:', response.status);
-    console.log('StatusText:', response.statusText);
-    console.log('Headers:', Object.fromEntries(response.headers.entries()));
-    console.log('Body:', result);
-    console.log('=== End PayTR Response ===');
+    // Production'da detaylı response loglarını kısıtla
+    if (process.env.NODE_ENV === 'development') {
+      console.log('=== PayTR Full Response ===');
+      console.log('Status:', response.status);
+      console.log('StatusText:', response.statusText);
+      console.log('Headers:', Object.fromEntries(response.headers.entries()));
+      console.log('Body:', result);
+      console.log('=== End PayTR Response ===');
+    }
     
     // PayTR response'u JSON formatında gelir
     try {

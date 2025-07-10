@@ -19,11 +19,15 @@ export default function About() {
         <div className="max-w-4xl mx-auto">
           <div className="bg-white rounded-xl shadow-lg p-8 mb-16">
             <div className="text-center mb-8">
-              <div className="w-20 h-20 bg-gradient-to-r from-slate-500 to-blue-500 rounded-full mx-auto mb-4 flex items-center justify-center">
-                <span className="text-white text-2xl font-bold">MÖ</span>
+              <div className="w-32 h-32 mx-auto mb-6 relative overflow-hidden rounded-full shadow-lg ring-4 ring-white">
+                <img 
+                  src="/Miray_Ozet.jpeg" 
+                  alt="Miray Özet - Kurucu & Tasarımcı" 
+                  className="w-full h-full object-cover"
+                />
               </div>
               <h2 className="text-3xl font-serif font-bold text-gray-800 mb-2">Miray Özet</h2>
-              <p className="text-gray-600">Kurucu & Başlıca Tasarımcı</p>
+              <p className="text-gray-600">Kurucu & Tasarımcı</p>
             </div>
             
             <div className="space-y-6">
