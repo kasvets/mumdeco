@@ -1,53 +1,48 @@
 export default function About() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 pt-48">
-      {/* Hero Section */}
-      <div className="relative bg-gradient-to-r from-slate-700 to-blue-600 text-white">
-        <div className="absolute inset-0 bg-black/20"></div>
-        <div className="relative container mx-auto px-4 py-20 text-center">
-          <h1 className="text-5xl md:text-6xl font-serif font-bold mb-6">
-            Mumdeco Hikayesi
-          </h1>
-          <p className="text-xl md:text-2xl font-light max-w-3xl mx-auto leading-relaxed">
-            Bir kadının hayallerinin ışığında doğan, el emeğinin büyüsüyle hayat bulan benzersiz bir yolculuk
-          </p>
-        </div>
-      </div>
-
+    <div className="min-h-screen bg-white pt-64">
       <div className="container mx-auto px-4 py-16">
         {/* Founder Story */}
         <div className="max-w-4xl mx-auto">
           <div className="bg-white rounded-xl shadow-lg p-8 mb-16">
-            <div className="text-center mb-8">
-              <div className="w-32 h-32 mx-auto mb-6 relative overflow-hidden rounded-full shadow-lg ring-4 ring-white">
-                <img 
-                  src="/Miray_Ozet.jpeg" 
-                  alt="Miray Özet - Kurucu & Tasarımcı" 
-                  className="w-full h-full object-cover"
-                />
+            <div className="grid md:grid-cols-2 gap-12 items-start">
+              {/* Left: Image */}
+              <div className="text-center">
+                <div className="w-80 h-80 mx-auto mb-8 relative overflow-hidden rounded-3xl shadow-xl">
+                  <img 
+                    src="/Miray_Ozet.jpeg" 
+                    alt="Miray Özet - Kurucu & Tasarımcı" 
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <h2 className="text-2xl font-sans font-semibold text-gray-900 tracking-tight">Miray Özet</h2>
+                  <p className="text-gray-500 font-medium text-sm uppercase tracking-wider">Kurucu & Tasarımcı</p>
+                </div>
               </div>
-              <h2 className="text-3xl font-serif font-bold text-gray-800 mb-2">Miray Özet</h2>
-              <p className="text-gray-600">Kurucu & Tasarımcı</p>
+              
+              {/* Right: Content */}
+              <div className="flex flex-col justify-between h-80 space-y-6">
+                <p className="text-gray-700 leading-relaxed font-light text-left">
+                  Mumdeco, Miray Özet'in el sanatlarına olan tutkusundan doğan bir girişimcilik hikayesidir. 
+                  Evinin sıcaklığından başlayarak, her bir mumu özenle tasarlayan ve üreten Miray Hanım, 
+                  sadece bir ürün değil, bir yaşam felsefesi sunuyor.
+                </p>
+                <p className="text-gray-700 leading-relaxed font-light text-left">
+                  "Her mumumda bir hikaye var, her kokusuyla bir anı... Ellerimle şekillendirdiğim bu eserler, 
+                  sizin yaşam alanlarınızda huzur ve sıcaklık kaynağı olsun" diyen Miray Özet, 
+                  bu vizyonuyla Mumdeco'yu hayata geçirdi.
+                </p>
+              </div>
             </div>
             
-            <div className="space-y-6">
-              <p className="text-lg text-gray-600 leading-relaxed">
-                Mumdeco, Miray Özet'in el sanatlarına olan tutkusundan doğan bir girişimcilik hikayesidir. 
-                Evinin sıcaklığından başlayarak, her bir mumu özenle tasarlayan ve üreten Miray Hanım, 
-                sadece bir ürün değil, bir yaşam felsefesi sunuyor.
-              </p>
-              <p className="text-lg text-gray-600 leading-relaxed">
-                "Her mumumda bir hikaye var, her kokusuyla bir anı... Ellerimle şekillendirdiğim bu eserler, 
-                sizin yaşam alanlarınızda huzur ve sıcaklık kaynağı olsun" diyen Miray Özet, 
-                bu vizyonuyla Mumdeco'yu hayata geçirdi.
-              </p>
-              <div className="bg-blue-50 border-l-4 border-blue-500 p-6 rounded-r-lg">
-                <p className="text-blue-800 font-medium italic">
-                  "Kadın girişimciliğinin gücüne inanıyorum. Evimden başlayan bu yolculuk, 
-                  bugün binlerce eve ulaşan bir marka haline geldi."
-                </p>
-                <p className="text-blue-600 text-sm mt-2">- Miray Özet, Kurucu</p>
-              </div>
+            {/* Quote Section */}
+            <div className="bg-gray-50 p-6 rounded-xl border border-gray-100 mt-8">
+              <blockquote className="text-gray-800 font-medium leading-relaxed">
+                "Kadın girişimciliğinin gücüne inanıyorum. Evimden başlayan bu yolculuk, 
+                bugün binlerce eve ulaşan bir marka haline geldi."
+              </blockquote>
+              <cite className="text-gray-500 text-sm font-medium mt-3 block">— Miray Özet</cite>
             </div>
           </div>
 
@@ -58,7 +53,7 @@ export default function About() {
             </h2>
             <div className="grid md:grid-cols-3 gap-8">
               <div className="text-center">
-                <div className="w-14 h-14 bg-slate-500 rounded-full mx-auto mb-4 flex items-center justify-center">
+                <div className="w-14 h-14 bg-gray-500 rounded-full mx-auto mb-4 flex items-center justify-center">
                   <span className="text-white text-xl">🎨</span>
                 </div>
                 <h3 className="text-xl font-serif font-bold text-gray-800 mb-3">Tasarım</h3>
@@ -68,7 +63,7 @@ export default function About() {
                 </p>
               </div>
               <div className="text-center">
-                <div className="w-14 h-14 bg-blue-500 rounded-full mx-auto mb-4 flex items-center justify-center">
+                <div className="w-14 h-14 bg-gray-500 rounded-full mx-auto mb-4 flex items-center justify-center">
                   <span className="text-white text-xl">🕯️</span>
                 </div>
                 <h3 className="text-xl font-serif font-bold text-gray-800 mb-3">Üretim</h3>
@@ -78,7 +73,7 @@ export default function About() {
                 </p>
               </div>
               <div className="text-center">
-                <div className="w-14 h-14 bg-slate-500 rounded-full mx-auto mb-4 flex items-center justify-center">
+                <div className="w-14 h-14 bg-gray-500 rounded-full mx-auto mb-4 flex items-center justify-center">
                   <span className="text-white text-xl">📦</span>
                 </div>
                 <h3 className="text-xl font-serif font-bold text-gray-800 mb-3">Paketleme</h3>
@@ -97,28 +92,28 @@ export default function About() {
                 <h3 className="text-2xl font-serif font-bold text-gray-800 mb-6">Değerlerimiz</h3>
                 <div className="space-y-4">
                   <div className="flex items-start space-x-3">
-                    <span className="w-2 h-2 bg-slate-500 rounded-full mt-2"></span>
+                    <span className="w-2 h-2 bg-gray-500 rounded-full mt-2"></span>
                     <div>
                       <h4 className="font-semibold text-gray-800">Kalite</h4>
                       <p className="text-gray-600">Her üründe en yüksek kalite standartları</p>
                     </div>
                   </div>
                   <div className="flex items-start space-x-3">
-                    <span className="w-2 h-2 bg-blue-500 rounded-full mt-2"></span>
+                    <span className="w-2 h-2 bg-gray-500 rounded-full mt-2"></span>
                     <div>
                       <h4 className="font-semibold text-gray-800">Sürdürülebilirlik</h4>
                       <p className="text-gray-600">Çevre dostu malzemeler ve üretim</p>
                     </div>
                   </div>
                   <div className="flex items-start space-x-3">
-                    <span className="w-2 h-2 bg-slate-500 rounded-full mt-2"></span>
+                    <span className="w-2 h-2 bg-gray-500 rounded-full mt-2"></span>
                     <div>
                       <h4 className="font-semibold text-gray-800">Özgünlük</h4>
                       <p className="text-gray-600">Benzersiz tasarım ve kişisel dokunuş</p>
                     </div>
                   </div>
                   <div className="flex items-start space-x-3">
-                    <span className="w-2 h-2 bg-blue-500 rounded-full mt-2"></span>
+                    <span className="w-2 h-2 bg-gray-500 rounded-full mt-2"></span>
                     <div>
                       <h4 className="font-semibold text-gray-800">Güven</h4>
                       <p className="text-gray-600">Müşteri memnuniyeti odaklı hizmet</p>
@@ -156,19 +151,19 @@ export default function About() {
             </h2>
             <div className="grid md:grid-cols-4 gap-6 text-center">
               <div>
-                <div className="text-3xl font-bold text-slate-600 mb-2">5000+</div>
+                <div className="text-3xl font-bold text-gray-600 mb-2">250+</div>
                 <p className="text-gray-600">Mutlu Müşteri</p>
               </div>
               <div>
-                <div className="text-3xl font-bold text-blue-600 mb-2">50+</div>
+                <div className="text-3xl font-bold text-gray-600 mb-2">50+</div>
                 <p className="text-gray-600">Benzersiz Tasarım</p>
               </div>
               <div>
-                <div className="text-3xl font-bold text-slate-600 mb-2">100%</div>
+                <div className="text-3xl font-bold text-gray-600 mb-2">100%</div>
                 <p className="text-gray-600">El Yapımı</p>
               </div>
               <div>
-                <div className="text-3xl font-bold text-blue-600 mb-2">3+</div>
+                <div className="text-3xl font-bold text-gray-600 mb-2">3+</div>
                 <p className="text-gray-600">Yıllık Deneyim</p>
               </div>
             </div>

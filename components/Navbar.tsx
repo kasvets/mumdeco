@@ -165,13 +165,13 @@ const Navbar = () => {
         <div className={`container max-w-[98%] mx-auto px-2 sm:px-4 transition-all duration-300 ${isScrolled ? 'py-2 sm:py-3' : 'py-3 sm:py-6'}`}>
           <div className="flex items-center justify-between">
             {/* Logo - Responsive sizing */}
-            <Link href="/" className="transition-all duration-300">
+            <Link href="/" className="transition-all duration-300 ml-4 sm:ml-0">
               <Image
                 src="/mumdeco_logo.png"
                 alt="MUMDECO Logo"
                 width={isScrolled ? 200 : 280}
                 height={isScrolled ? 67 : 93}
-                className={`transition-all duration-300 ${isScrolled ? 'w-36 h-auto sm:w-40 md:w-44' : 'w-40 h-auto sm:w-44 md:w-48'}`}
+                className={`transition-all duration-300 ${isScrolled ? 'w-40 h-auto sm:w-40 md:w-44' : 'w-44 h-auto sm:w-44 md:w-48'}`}
                 priority
               />
             </Link>

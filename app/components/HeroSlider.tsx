@@ -86,7 +86,7 @@ export default function HeroSlider() {
         </Swiper>
 
         {/* Custom Navigation and Pagination */}
-        <div className="absolute -bottom-12 left-1/2 -translate-x-1/2 flex items-center gap-8">
+        <div className="absolute bottom-4 sm:-bottom-12 left-1/2 -translate-x-1/2 flex items-center gap-8">
           <button 
             onClick={() => swiper?.slidePrev()}
             className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-800 transition-colors duration-300"

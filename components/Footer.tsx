@@ -72,7 +72,7 @@ const Footer = () => {
         <div className="py-6 border-t border-gray-200">
           <div className="flex flex-col items-center space-y-4 text-center">
             <p className="text-sm text-gray-500">
-              © 2024 Mumdeco. Tüm hakları saklıdır.
+              © 2025 Mumdeco. Tüm hakları saklıdır.
             </p>
             <div className="flex items-center space-x-2">
               <span className="text-sm text-gray-500">Created with</span>

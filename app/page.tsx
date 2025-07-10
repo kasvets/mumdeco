@@ -32,7 +32,9 @@ export default function Home() {
         // Load featured products
         const products = await fetchFeaturedProducts(10);
         console.log('🔍 Featured products loaded:', products);
-        setBestSellers(products);
+        // Sort products by ID (numeric order)
+        const sortedProducts = products.sort((a, b) => a.id - b.id);
+        setBestSellers(sortedProducts);
         
         // Load collections
         const collectionsResponse = await fetch('/api/collections');
@@ -40,7 +42,11 @@ export default function Home() {
         console.log('🔍 Collections loaded:', collectionsData);
         
         if (collectionsData.status === 'success') {
-          setCollections(collectionsData.collections);
+          // Sort collections alphabetically by name
+          const sortedCollections = collectionsData.collections.sort((a: Collection, b: Collection) => 
+            a.name.localeCompare(b.name, 'tr', { sensitivity: 'base' })
+          );
+          setCollections(sortedCollections);
         }
       } catch (error) {
         console.error('🔍 Error loading data:', error);
@@ -64,9 +70,9 @@ export default function Home() {
   }
 
   return (
-    <main className="flex flex-col min-h-screen mt-[140px] sm:mt-[160px] md:mt-[180px] lg:mt-[200px]">
+    <main className="flex flex-col min-h-screen mt-0 sm:mt-[160px] md:mt-[180px] lg:mt-[200px]">
       {/* Hero Section */}
-      <section className="relative h-[70vh] sm:h-[80vh] md:h-[85vh] w-full">
+      <section className="relative h-screen sm:h-[80vh] md:h-[85vh] w-full">
         <HeroSlider />
 
         {/* Content */}
@@ -91,7 +97,7 @@ export default function Home() {
       </section>
 
       {/* Best Sellers Section */}
-      <section className="pt-12 pb-8 sm:pt-16 sm:pb-12 md:pt-20 md:pb-16">
+      <section className="pt-16 pb-8 sm:pt-16 sm:pb-12 md:pt-20 md:pb-16">
         <div className="max-w-[98%] 2xl:max-w-[96rem] mx-auto px-2 sm:px-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8 sm:mb-12 gap-4">
             <h2 className="text-2xl sm:text-3xl md:text-4xl font-serif text-center sm:text-left">Çok Satan Ürünler</h2>
