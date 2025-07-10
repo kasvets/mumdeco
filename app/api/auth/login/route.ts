@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSupabaseClient } from '@/lib/supabase-server';
+import { createServerSupabaseClient } from '@/lib/supabase-server';
 
 export async function POST(request: NextRequest) {
   try {
@@ -22,7 +22,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const supabase = getServerSupabaseClient();
+    console.log('🔐 LOGIN: Attempting login for:', email);
+    
+    const supabase = createServerSupabaseClient();
 
     // Kullanıcı girişi
     const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
@@ -31,7 +33,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (authError) {
-      console.error('Login error:', authError);
+      console.error('❌ LOGIN: Auth error:', authError);
       
       // Türkçe hata mesajları
       let errorMessage = 'Giriş sırasında bir hata oluştu.';
@@ -50,6 +52,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    console.log('✅ LOGIN: Auth successful for:', authData.user.email);
+    console.log('🔑 LOGIN: Session created:', {
+      hasSession: !!authData.session,
+      hasAccessToken: !!authData.session?.access_token,
+      hasRefreshToken: !!authData.session?.refresh_token
+    });
+
     // Kullanıcı profil bilgilerini al
     const { data: profileData, error: profileError } = await supabase
       .from('user_profiles')
@@ -58,8 +67,14 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (profileError) {
-      console.error('Profile fetch error:', profileError);
+      console.error('⚠️ LOGIN: Profile fetch error:', profileError);
       // Profil bulunamadığında hata vermek yerine temel bilgileri döndür
+    } else {
+      console.log('👤 LOGIN: Profile loaded:', {
+        email: profileData.email,
+        accountStatus: profileData.account_status,
+        isAdmin: profileData.account_status === 'admin'
+      });
     }
 
     // Last login tarihini güncelle
@@ -83,8 +98,8 @@ export async function POST(request: NextRequest) {
       user_agent: userAgent,
     });
 
-    // Giriş başarılı
-    return NextResponse.json({
+    // Session çerezlerini set et
+    const response = NextResponse.json({
       message: 'Giriş başarılı!',
       user: {
         id: authData.user.id,
@@ -93,6 +108,7 @@ export async function POST(request: NextRequest) {
         phone: profileData?.phone,
         emailConfirmed: authData.user.email_confirmed_at ? true : false,
         lastLogin: new Date().toISOString(),
+        isAdmin: profileData?.account_status === 'admin'
       },
       session: {
         access_token: authData.session?.access_token,
@@ -101,8 +117,34 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    // Supabase session çerezlerini set et
+    if (authData.session) {
+      const maxAge = 60 * 60 * 24 * 7; // 7 gün
+      
+      console.log('🍪 LOGIN: Setting session cookies');
+      
+      response.cookies.set('sb-access-token', authData.session.access_token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: maxAge,
+        path: '/'
+      });
+      
+      response.cookies.set('sb-refresh-token', authData.session.refresh_token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: maxAge,
+        path: '/'
+      });
+    }
+
+    console.log('🎉 LOGIN: Login complete, returning response');
+    return response;
+
   } catch (error) {
-    console.error('Login error:', error);
+    console.error('❌ LOGIN: Unexpected error:', error);
     return NextResponse.json(
       { error: 'Sunucu hatası oluştu.' },
       { status: 500 }

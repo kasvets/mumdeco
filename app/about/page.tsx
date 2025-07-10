@@ -1,10 +1,10 @@
 export default function About() {
   return (
-    <div className="min-h-screen bg-white pt-64">
-      <div className="container mx-auto px-4 py-16">
+    <div className="min-h-screen bg-white pt-20 md:pt-32 lg:pt-40">
+      <div className="mx-auto px-4 py-16">
         {/* Founder Story */}
         <div className="max-w-4xl mx-auto">
-          <div className="bg-white rounded-xl shadow-lg p-8 mb-16">
+          <div className="p-8 mb-16">
             <div className="grid md:grid-cols-2 gap-12 items-start">
               {/* Left: Image */}
               <div className="text-center">
@@ -47,7 +47,7 @@ export default function About() {
           </div>
 
           {/* Handmade Process */}
-          <div className="bg-white rounded-xl shadow-lg p-8 mb-16">
+          <div className="p-8 mb-16">
             <h2 className="text-3xl font-serif font-bold text-center text-gray-800 mb-10">
               El Emeği Üretim Süreci
             </h2>
@@ -86,7 +86,7 @@ export default function About() {
           </div>
 
           {/* Values & Vision */}
-          <div className="bg-white rounded-xl shadow-lg p-8 mb-16">
+          <div className="p-8 mb-16">
             <div className="grid md:grid-cols-2 gap-8">
               <div>
                 <h3 className="text-2xl font-serif font-bold text-gray-800 mb-6">Değerlerimiz</h3>
@@ -145,7 +145,7 @@ export default function About() {
           </div>
 
           {/* Stats */}
-          <div className="bg-white rounded-xl shadow-lg p-8 mb-16">
+          <div className="p-8 mb-16">
             <h2 className="text-2xl font-serif font-bold text-center text-gray-800 mb-8">
               Rakamlarla Mumdeco
             </h2>
@@ -170,7 +170,7 @@ export default function About() {
           </div>
 
           {/* Contact */}
-          <div className="text-center bg-white rounded-xl p-10 shadow-lg">
+          <div className="text-center p-10">
             <h2 className="text-2xl font-serif font-bold mb-4 text-gray-800">
               Bizimle İletişime Geçin
             </h2>

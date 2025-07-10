@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// Kullanıcıyı admin yapma endpoint'i
+// Kullanıcıyı admin yapma endpoint'i - GÜVENLİ VERSİYON
 export async function POST(request: NextRequest) {
   try {
     const { userId } = await request.json();
@@ -62,7 +62,29 @@ export async function POST(request: NextRequest) {
 
     const supabase = getServerSupabaseClient();
 
-    // Kullanıcıyı admin yap
+    // Önce mevcut kullanıcının admin yetkisi olup olmadığını kontrol et
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+    if (sessionError || !session) {
+      return NextResponse.json({
+        error: 'Oturum bulunamadı'
+      }, { status: 401 });
+    }
+
+    // İstek yapan kullanıcının admin olup olmadığını kontrol et
+    const { data: currentUserProfile, error: currentUserError } = await supabase
+      .from('user_profiles')
+      .select('account_status')
+      .eq('id', session.user.id)
+      .single();
+
+    if (currentUserError || !currentUserProfile || currentUserProfile.account_status !== 'admin') {
+      return NextResponse.json({
+        error: 'Bu işlem için admin yetkisi gereklidir'
+      }, { status: 403 });
+    }
+
+    // Admin yetkisi doğrulandı, artık kullanıcıyı admin yapabilir
     const { data: updatedProfile, error } = await supabase
       .from('user_profiles')
       .update({ 

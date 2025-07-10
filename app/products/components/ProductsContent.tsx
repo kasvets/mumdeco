@@ -174,6 +174,18 @@ export default function ProductsContent() {
     const matchesOnSale = filters.onSale ? product.is_new : true; // Using is_new instead of on_sale
 
     return matchesCategory && matchesPrice && matchesSortBy && matchesInStock && matchesOnSale;
+  }).sort((a, b) => {
+    // Extract number from product name for numerical sorting
+    const extractNumber = (name: string): number => {
+      // Look for patterns like "No.1", "No.2", "Model-1", "Model-2", etc.
+      const match = name.match(/(?:No\.?|Model-?)(\d+)/i);
+      return match ? parseInt(match[1], 10) : 999999; // Put items without numbers at the end
+    };
+    
+    const numA = extractNumber(a.name);
+    const numB = extractNumber(b.name);
+    
+    return numA - numB; // Sort in ascending order (1, 2, 3, ...)
   });
 
   const toggleFilters = () => {

@@ -70,13 +70,28 @@ export async function GET(request: NextRequest) {
       }, { status: 500 });
     }
 
+    // Sort products by numerical value in name (No.1, No.2, etc.) for better ordering
+    const sortedProducts = (data || []).sort((a, b) => {
+      // Extract number from product name
+      const extractNumber = (name: string): number => {
+        // Look for patterns like "No.1", "No.2", "Model-1", "Model-2", etc.
+        const match = name.match(/(?:No\.?|Model-?)(\d+)/i);
+        return match ? parseInt(match[1], 10) : 999999; // Put items without numbers at the end
+      };
+      
+      const numA = extractNumber(a.name);
+      const numB = extractNumber(b.name);
+      
+      return numA - numB; // Sort in ascending order (1, 2, 3, ...)
+    });
+
     return NextResponse.json({
       status: 'success',
       message: search ? `Search completed for "${search}"` : 'Products fetched successfully',
-      productCount: data?.length || 0,
+      productCount: sortedProducts?.length || 0,
       queryParams: { category, search, isNew, isFeatured, limit },
       searchTerm: search,
-      products: data?.map(p => ({
+      products: sortedProducts?.map(p => ({
         id: p.id,
         name: p.name,
         description: p.description,

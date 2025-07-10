@@ -157,7 +157,7 @@ export default function CartPage() {
 
   if (items.length === 0) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 pt-[180px] sm:pt-[200px] md:pt-[220px] lg:pt-[240px]">        
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 pt-8">        
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
             {/* Empty cart illustration */}
@@ -234,7 +234,7 @@ export default function CartPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 py-8 sm:py-12 pt-[180px] sm:pt-[200px] md:pt-[220px] lg:pt-[240px]">
+      <div className="min-h-screen bg-gray-50 py-8 sm:py-12 pt-8">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-amber-500 mx-auto"></div>
@@ -246,7 +246,7 @@ export default function CartPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 sm:py-12 pt-[180px] sm:pt-[200px] md:pt-[220px] lg:pt-[240px]">
+    <div className="min-h-screen bg-gray-50 py-8 sm:py-12 pt-8">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="mb-6 sm:mb-8">
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Sepetim</h1>
@@ -370,7 +370,7 @@ export default function CartPage() {
                 <button
                   onClick={handleCheckout}
                   disabled={isCheckingOut}
-                  className="w-full bg-amber-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-amber-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center text-sm sm:text-base"
+                  className="w-full bg-black text-white py-3 px-4 rounded-lg font-medium hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center text-sm sm:text-base"
                 >
                   {isCheckingOut ? (
                     <>
@@ -524,7 +524,7 @@ export default function CartPage() {
                   <button
                     onClick={processPayment}
                     disabled={isCheckingOut}
-                    className="flex-1 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                    className="flex-1 px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
                   >
                     {isCheckingOut ? (
                       <>

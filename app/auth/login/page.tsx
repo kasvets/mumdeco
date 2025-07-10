@@ -34,11 +34,19 @@ export default function LoginPage() {
       // Başarılı giriş
       console.log('Login successful:', data)
       
-      // Admin cookie'sini set et
-      document.cookie = 'admin-authenticated=true; path=/; max-age=86400; SameSite=Lax';
+      // Kısa bir bekleme ile çerezlerin set edilmesini bekleyelim
+      await new Promise(resolve => setTimeout(resolve, 100));
       
-      // Admin paneline yönlendir
-      router.push('/admin')
+      // Admin kontrolü
+      if (data.user?.isAdmin) {
+        console.log('User is admin, redirecting to /admin')
+        // Admin ise admin paneline yönlendir
+        router.replace('/admin')
+      } else {
+        console.log('User is not admin, redirecting to /')
+        // Normal kullanıcı ise ana sayfaya yönlendir
+        router.replace('/')
+      }
       
     } catch (err) {
       console.error('Login error:', err)

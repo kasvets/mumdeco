@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, memo } from 'react';
 import { supabase, Product } from '@/lib/supabase';
 import { checkEnvironmentVariables } from '@/lib/env';
 import Link from 'next/link';
@@ -25,6 +25,22 @@ export default function AdminProducts() {
   const [selectedStatus, setSelectedStatus] = useState('all'); // all, active, inactive
   const [categories, setCategories] = useState<string[]>([]);
   const router = useRouter();
+
+  // Price editing state
+  const [editingPrice, setEditingPrice] = useState<{
+    productId: number;
+    price: string;
+    oldPrice: string;
+  } | null>(null);
+
+  // Bulk price update state
+  const [bulkPriceModal, setBulkPriceModal] = useState<{
+    isOpen: boolean;
+    selectedProducts: number[];
+  }>({
+    isOpen: false,
+    selectedProducts: []
+  });
 
   // Modal state
   const [modal, setModal] = useState<{
@@ -514,12 +530,255 @@ export default function AdminProducts() {
     }
   };
 
+  // Price editing functions
+  const startPriceEdit = (product: Product) => {
+    setEditingPrice({
+      productId: product.id,
+      price: product.price.toString(),
+      oldPrice: product.old_price?.toString() || ''
+    });
+  };
+
+  const cancelPriceEdit = () => {
+    setEditingPrice(null);
+  };
+
+  const savePriceEdit = async () => {
+    if (!editingPrice) return;
+
+    try {
+      const updateData: any = {
+        price: parseFloat(editingPrice.price) || 0
+      };
+
+      // Only update old_price if it's different from the current old_price
+      if (editingPrice.oldPrice !== '') {
+        updateData.old_price = parseFloat(editingPrice.oldPrice) || null;
+      }
+
+      const response = await fetch(`/api/admin/products/${editingPrice.productId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(updateData)
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      
+      if (result.error) {
+        throw new Error(result.error);
+      }
+      
+      // Update the product in the local state
+      setProducts(products.map(p => 
+        p.id === editingPrice.productId 
+          ? { 
+              ...p, 
+              price: parseFloat(editingPrice.price) || 0,
+              old_price: editingPrice.oldPrice ? parseFloat(editingPrice.oldPrice) : null
+            } 
+          : p
+      ));
+      
+      setEditingPrice(null);
+      showModal('success', 'Başarılı!', 'Fiyat başarıyla güncellendi!', true);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Bilinmeyen hata';
+      console.error('Fiyat güncellenirken hata:', {
+        message: errorMessage,
+        error: error,
+        stack: error instanceof Error ? error.stack : undefined
+      });
+      showModal('error', 'Hata!', `Fiyat güncellenirken hata oluştu: ${errorMessage}`);
+    }
+  };
+
+  const handlePriceKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      savePriceEdit();
+    } else if (e.key === 'Escape') {
+      cancelPriceEdit();
+    }
+  };
+
+  // Bulk price update functions
+  const openBulkPriceModal = useCallback(() => {
+    setBulkPriceModal({
+      isOpen: true,
+      selectedProducts: []
+    });
+  }, []);
+
+  const closeBulkPriceModal = useCallback(() => {
+    setBulkPriceModal({
+      isOpen: false,
+      selectedProducts: []
+    });
+  }, []);
+
+
+
+  const saveBulkPriceUpdate = async (data: { bulkPrice: string; bulkOldPrice: string; selectedProducts: number[] }) => {
+    if (data.selectedProducts.length === 0) {
+      showModal('warning', 'Uyarı!', 'Lütfen en az bir ürün seçin.');
+      return;
+    }
+
+    if (!data.bulkPrice || parseFloat(data.bulkPrice) <= 0) {
+      showModal('warning', 'Uyarı!', 'Lütfen geçerli bir fiyat girin.');
+      return;
+    }
+
+    try {
+      const updatePromises = data.selectedProducts.map(productId => {
+        const updateData: any = {
+          price: parseFloat(data.bulkPrice)
+        };
+
+        if (data.bulkOldPrice !== '') {
+          updateData.old_price = parseFloat(data.bulkOldPrice) || null;
+        }
+
+        return fetch(`/api/admin/products/${productId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(updateData)
+        });
+      });
+
+      const responses = await Promise.all(updatePromises);
+      
+      // Check if all requests were successful
+      const failedUpdates = responses.filter(response => !response.ok);
+      
+      if (failedUpdates.length > 0) {
+        throw new Error(`${failedUpdates.length} ürün güncellenirken hata oluştu`);
+      }
+
+      // Update local state for all selected products
+      setProducts(products.map(p => 
+        data.selectedProducts.includes(p.id)
+          ? { 
+              ...p, 
+              price: parseFloat(data.bulkPrice),
+              old_price: data.bulkOldPrice ? parseFloat(data.bulkOldPrice) : p.old_price
+            }
+          : p
+      ));
+
+      closeBulkPriceModal();
+      showModal('success', 'Başarılı!', `${data.selectedProducts.length} ürün fiyatı başarıyla güncellendi!`, true);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Bilinmeyen hata';
+      console.error('Toplu fiyat güncellenirken hata:', error);
+      showModal('error', 'Hata!', `Toplu fiyat güncellenirken hata oluştu: ${errorMessage}`);
+    }
+  };
+
+  // Price cell component
+  const PriceCell = ({ product }: { product: Product }) => {
+    const isEditing = editingPrice?.productId === product.id;
+
+    if (isEditing) {
+      return (
+        <div className="space-y-2">
+          <div className="flex items-center space-x-2">
+            <input
+              type="number"
+              value={editingPrice.price}
+              onChange={(e) => setEditingPrice(prev => prev ? { ...prev, price: e.target.value } : null)}
+              onKeyDown={handlePriceKeyDown}
+              onBlur={savePriceEdit}
+              className="w-20 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Fiyat"
+              autoFocus
+            />
+            <span className="text-sm text-gray-500">₺</span>
+          </div>
+          {/* Old price input */}
+          <div className="flex items-center space-x-2">
+            <input
+              type="number"
+              value={editingPrice.oldPrice}
+              onChange={(e) => setEditingPrice(prev => prev ? { ...prev, oldPrice: e.target.value } : null)}
+              onKeyDown={handlePriceKeyDown}
+              className="w-20 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Eski fiyat"
+            />
+            <span className="text-sm text-gray-400">₺</span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={savePriceEdit}
+              className="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700"
+            >
+              Kaydet
+            </button>
+            <button
+              onClick={cancelPriceEdit}
+              className="px-2 py-1 text-xs bg-gray-600 text-white rounded hover:bg-gray-700"
+            >
+              İptal
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div 
+        className="cursor-pointer hover:bg-green-50 p-3 rounded-lg transition-all duration-200 border border-transparent hover:border-green-200 group"
+        onClick={() => startPriceEdit(product)}
+        title="Fiyatı düzenlemek için tıklayın"
+      >
+        <div className="flex items-center justify-between">
+          <div>
+            <span className="font-medium text-lg">{product.price}₺</span>
+            {product.old_price && (
+              <span className="text-gray-500 line-through ml-2">{product.old_price}₺</span>
+            )}
+          </div>
+          <div className="flex items-center px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-medium group-hover:bg-green-200 transition-colors">
+            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+            </svg>
+            Fiyat Düzenle
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Simple component render
+  const BulkPriceModal = () => {
+    if (!bulkPriceModal.isOpen) return null;
+    
+    return (
+      <BulkPriceModalComponent
+        bulkPriceModal={bulkPriceModal}
+        onClose={closeBulkPriceModal}
+        onSave={saveBulkPriceUpdate}
+        categories={categories}
+        categoryMap={categoryMap}
+        filteredProducts={filteredProducts}
+      />
+    );
+  };
+
   const filteredProducts = products.filter(product => {
     const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = selectedCategory === 'all' || product.category === selectedCategory;
     const matchesStatus = selectedStatus === 'all' || 
                          (selectedStatus === 'active' && product.active !== false) ||
-                         (selectedStatus === 'inactive' && product.active === false);
+                         (selectedStatus === 'inactive' && product.active === false) ||
+                         selectedStatus === 'price-edit';
     return matchesSearch && matchesCategory && matchesStatus;
   });
 
@@ -588,6 +847,15 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key`}
               <p className="text-gray-600 mt-2">Toplam {products.length} ürün</p>
             </div>
             <div className="flex space-x-4">
+              <button
+                onClick={openBulkPriceModal}
+                className="bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 transition-colors flex items-center space-x-2"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                </svg>
+                <span>Toplu Fiyat Güncelle</span>
+              </button>
               <Link href="/admin/products/new" className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
                 Yeni Ürün Ekle
               </Link>
@@ -602,7 +870,8 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key`}
               {[
                 { key: 'all', label: 'Tümü', count: products.length },
                 { key: 'active', label: 'Aktif', count: products.filter(p => p.active !== false).length },
-                { key: 'inactive', label: 'Deaktif', count: products.filter(p => p.active === false).length }
+                { key: 'inactive', label: 'Deaktif', count: products.filter(p => p.active === false).length },
+                { key: 'price-edit', label: 'Hızlı Fiyat Düzenle', count: products.length }
               ].map(tab => (
                 <button
                   key={tab.key}
@@ -613,7 +882,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key`}
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                   }`}
                 >
-                  {tab.label} ({tab.count})
+                  {tab.label} {tab.key !== 'price-edit' && `(${tab.count})`}
                 </button>
               ))}
             </nav>
@@ -649,19 +918,68 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key`}
           </div>
         </div>
 
-        {/* Products Table */}
-        <div className="bg-white rounded-lg shadow-md overflow-hidden">
-          {filteredProducts.length === 0 ? (
-            <div className="text-center py-12">
-              <svg className="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-              </svg>
-              <p className="text-gray-500 text-lg">Henüz ürün eklenmemiş</p>
-              <Link href="/admin/products/new" className="text-blue-600 hover:text-blue-800 font-medium">
-                İlk ürünü ekle
-              </Link>
-            </div>
-          ) : (
+        {/* Products Table or Price Edit View */}
+        {selectedStatus === 'price-edit' ? (
+          <div className="bg-white rounded-lg shadow-md overflow-hidden">
+            {filteredProducts.length === 0 ? (
+              <div className="text-center py-12">
+                <svg className="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                </svg>
+                <p className="text-gray-500 text-lg">Henüz ürün eklenmemiş</p>
+                <Link href="/admin/products/new" className="text-blue-600 hover:text-blue-800 font-medium">
+                  İlk ürünü ekle
+                </Link>
+              </div>
+            ) : (
+              <div className="p-6">
+                <div className="mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Hızlı Fiyat Düzenle</h3>
+                  <p className="text-sm text-gray-600">Ürün fiyatlarını tıklayarak direkt düzenleyebilirsiniz.</p>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {filteredProducts.map((product) => (
+                    <div key={product.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-lg transition-shadow">
+                      <div className="flex items-center mb-3">
+                        <div className="flex-shrink-0 h-16 w-16 mr-3">
+                          {product.image_url ? (
+                            <img src={product.image_url} alt={product.name} className="h-16 w-16 rounded-lg object-cover" />
+                          ) : (
+                            <div className="h-16 w-16 rounded-lg bg-gray-200 flex items-center justify-center">
+                              <svg className="h-8 w-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                              </svg>
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex-1">
+                          <h4 className="font-medium text-gray-900 text-sm">{product.name}</h4>
+                          <p className="text-xs text-gray-500 mt-1">{categoryMap[product.category] || product.category}</p>
+                        </div>
+                      </div>
+                      <div className="border-t pt-3">
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Fiyat</label>
+                        <PriceCell product={product} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="bg-white rounded-lg shadow-md overflow-hidden">
+            {filteredProducts.length === 0 ? (
+              <div className="text-center py-12">
+                <svg className="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                </svg>
+                <p className="text-gray-500 text-lg">Henüz ürün eklenmemiş</p>
+                <Link href="/admin/products/new" className="text-blue-600 hover:text-blue-800 font-medium">
+                  İlk ürünü ekle
+                </Link>
+              </div>
+            ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-gray-50">
@@ -701,13 +1019,8 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key`}
                           {categoryMap[product.category] || product.category}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        <div>
-                          <span className="font-medium">{product.price}₺</span>
-                          {product.old_price && (
-                            <span className="text-gray-500 line-through ml-2">{product.old_price}₺</span>
-                          )}
-                        </div>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <PriceCell product={product} />
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <button
@@ -767,13 +1080,251 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key`}
                 </tbody>
               </table>
             </div>
-          )}
-        </div>
+            )}
+          </div>
+        )}
       </div>
       
       {/* Modal Components */}
       <Modal />
       <ConfirmModal />
+      <BulkPriceModal />
     </div>
   );
-} 
+}
+
+// Separate Bulk Price Modal Component with Internal State
+const BulkPriceModalComponent = memo(({
+  bulkPriceModal,
+  onClose,
+  onSave,
+  categories,
+  categoryMap,
+  filteredProducts
+}: {
+  bulkPriceModal: {
+    isOpen: boolean;
+    selectedProducts: number[];
+  };
+  onClose: () => void;
+  onSave: (data: { bulkPrice: string; bulkOldPrice: string; selectedProducts: number[] }) => void;
+  categories: string[];
+  categoryMap: { [key: string]: string };
+  filteredProducts: Product[];
+}) => {
+  // Internal state for inputs to prevent re-renders
+  const [bulkPrice, setBulkPrice] = useState('');
+  const [bulkOldPrice, setBulkOldPrice] = useState('');
+  const [selectedProducts, setSelectedProducts] = useState<number[]>([]);
+
+  // Reset state when modal opens
+  useEffect(() => {
+    if (bulkPriceModal.isOpen) {
+      setBulkPrice('');
+      setBulkOldPrice('');
+      setSelectedProducts([]);
+    }
+  }, [bulkPriceModal.isOpen]);
+
+  const handleBulkPriceChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setBulkPrice(e.target.value);
+  }, []);
+
+  const handleBulkOldPriceChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setBulkOldPrice(e.target.value);
+  }, []);
+
+  const toggleProductSelection = useCallback((productId: number) => {
+    setSelectedProducts(prev => 
+      prev.includes(productId)
+        ? prev.filter(id => id !== productId)
+        : [...prev, productId]
+    );
+  }, []);
+
+  const selectAllProducts = useCallback(() => {
+    setSelectedProducts(filteredProducts.map(p => p.id));
+  }, [filteredProducts]);
+
+  const clearAllSelection = useCallback(() => {
+    setSelectedProducts([]);
+  }, []);
+
+  const handleSave = useCallback(() => {
+    onSave({
+      bulkPrice,
+      bulkOldPrice,
+      selectedProducts
+    });
+  }, [bulkPrice, bulkOldPrice, selectedProducts, onSave]);
+
+  return (
+    <div className="fixed inset-0 z-50 overflow-y-auto">
+      {/* Backdrop */}
+      <div 
+        className="fixed inset-0 bg-black bg-opacity-50 transition-opacity duration-300"
+        onClick={onClose}
+      />
+      
+      {/* Modal */}
+      <div className="flex items-center justify-center min-h-screen p-4">
+        <div className="relative bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+          {/* Header */}
+          <div className="flex items-center justify-between p-6 border-b border-gray-200">
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
+                <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Toplu Fiyat Güncelleme</h3>
+                <p className="text-sm text-gray-600">Seçilen ürünlerin fiyatlarını topluca güncelleyin</p>
+              </div>
+            </div>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          {/* Body */}
+          <div className="p-6 overflow-y-auto max-h-[60vh]">
+            {/* Price Inputs */}
+            <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+              <h4 className="font-medium text-gray-900 mb-4">Yeni Fiyat Bilgileri</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Yeni Fiyat</label>
+                  <div className="flex items-center">
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={bulkPrice}
+                      onChange={handleBulkPriceChange}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      placeholder="Örn: 299.99"
+                      autoComplete="off"
+                    />
+                    <span className="ml-2 text-gray-500">₺</span>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Eski Fiyat (İsteğe Bağlı)</label>
+                  <div className="flex items-center">
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={bulkOldPrice}
+                      onChange={handleBulkOldPriceChange}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      placeholder="Örn: 499.99"
+                      autoComplete="off"
+                    />
+                    <span className="ml-2 text-gray-500">₺</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Product Selection */}
+            <div className="mb-4">
+              <div className="flex items-center justify-between mb-4">
+                <h4 className="font-medium text-gray-900">Ürün Seçimi ({selectedProducts.length} seçili)</h4>
+                <div className="flex space-x-2">
+                  <button
+                    onClick={selectAllProducts}
+                    className="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors"
+                  >
+                    Tümünü Seç
+                  </button>
+                  <button
+                    onClick={clearAllSelection}
+                    className="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors"
+                  >
+                    Seçimi Temizle
+                  </button>
+                </div>
+              </div>
+
+              {/* Product List by Category */}
+              <div className="space-y-4">
+                {categories.map(category => {
+                  const categoryProducts = filteredProducts.filter(p => p.category === category);
+                  if (categoryProducts.length === 0) return null;
+
+                  return (
+                    <div key={category} className="border border-gray-200 rounded-lg">
+                      <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
+                        <h5 className="font-medium text-gray-900">{categoryMap[category] || category}</h5>
+                      </div>
+                      <div className="p-4 space-y-2">
+                        {categoryProducts.map(product => (
+                          <label key={product.id} className="flex items-center space-x-3 p-2 rounded hover:bg-gray-50 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={selectedProducts.includes(product.id)}
+                              onChange={() => toggleProductSelection(product.id)}
+                              className="w-4 h-4 text-orange-600 border-gray-300 rounded focus:ring-orange-500"
+                            />
+                            <div className="flex items-center space-x-3 flex-1">
+                              <div className="w-10 h-10 rounded bg-gray-200">
+                                {product.image_url ? (
+                                  <img src={product.image_url} alt={product.name} className="w-10 h-10 rounded object-cover" />
+                                ) : (
+                                  <div className="w-10 h-10 rounded bg-gray-200 flex items-center justify-center">
+                                    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                    </svg>
+                                  </div>
+                                )}
+                              </div>
+                              <div className="flex-1">
+                                <div className="font-medium text-gray-900">{product.name}</div>
+                                <div className="text-sm text-gray-500">Mevcut fiyat: {product.price}₺</div>
+                              </div>
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="flex items-center justify-between p-6 border-t border-gray-200 bg-gray-50">
+            <div className="text-sm text-gray-600">
+              {selectedProducts.length > 0 && (
+                <span>{selectedProducts.length} ürün seçili</span>
+              )}
+            </div>
+            <div className="flex space-x-3">
+              <button
+                onClick={onClose}
+                className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                İptal
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={selectedProducts.length === 0 || !bulkPrice}
+                className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+              >
+                Fiyatları Güncelle
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+});
+
+BulkPriceModalComponent.displayName = 'BulkPriceModalComponent'; 

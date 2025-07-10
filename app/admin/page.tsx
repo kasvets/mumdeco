@@ -1,17 +1,8 @@
 'use client';
 
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
 export default function AdminPage() {
-  const router = useRouter();
-
-  useEffect(() => {
-    // Otomatik olarak dashboard'a yönlendir
-    router.push('/admin/dashboard');
-  }, [router]);
-
   return (
     <div className="p-8">
       <div className="max-w-6xl mx-auto">

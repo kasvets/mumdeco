@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 
 export default function AdminLayout({
   children,
@@ -11,6 +11,14 @@ export default function AdminLayout({
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const pathname = usePathname();
+  const router = useRouter();
+
+  // Middleware zaten admin kontrolü yaptığı için client-side doğrulama kaldırıldı
+  console.log('🚀 ADMIN LAYOUT: Component rendered! Middleware already verified admin access.');
+
+  useEffect(() => {
+    console.log('🚀 ADMIN LAYOUT: useEffect triggered!');
+  }, []);
 
   const navigation = [
     { name: 'Dashboard', href: '/admin/dashboard', icon: DashboardIcon },
@@ -20,6 +28,22 @@ export default function AdminLayout({
     { name: 'Kategoriler', href: '/admin/categories', icon: TagIcon },
     { name: 'Ayarlar', href: '/admin/settings', icon: SettingsIcon },
   ];
+
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include'
+      });
+    } catch (error) {
+      console.error('Logout error:', error);
+    } finally {
+      // Çerezleri temizle
+      document.cookie = 'sb-access-token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;';
+      document.cookie = 'sb-refresh-token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;';
+      router.push('/auth/login');
+    }
+  };
 
   return (
     <div className="flex h-screen bg-gray-100">
@@ -67,7 +91,16 @@ export default function AdminLayout({
           })}
         </nav>
 
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200">
+        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200 space-y-2">
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center px-2 py-2 text-sm font-medium text-red-600 rounded-md hover:bg-red-50 hover:text-red-700 transition-colors"
+          >
+            <svg className="mr-3 h-6 w-6 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
+            Çıkış Yap
+          </button>
           <Link
             href="/"
             className="flex items-center px-2 py-2 text-sm font-medium text-gray-600 rounded-md hover:bg-gray-50 hover:text-gray-900 transition-colors"
@@ -110,7 +143,15 @@ export default function AdminLayout({
                 </div>
                 <span className="text-xl font-bold text-gray-800">MumDeco Admin</span>
               </div>
-              <div className="w-10"></div>
+              <button
+                onClick={handleLogout}
+                className="p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100"
+                title="Çıkış Yap"
+              >
+                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+              </button>
             </div>
           </div>
         </div>
