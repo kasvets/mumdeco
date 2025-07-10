@@ -86,18 +86,22 @@ export async function POST(request: NextRequest) {
     // Sipariş ID oluştur
     const orderId = generateOrderId();
     
-    // Toplam tutar hesapla
+    // KDV oranı (%20)
+    const VAT_RATE = 0.20;
+    
+    // Toplam tutar hesapla (KDV dahil)
     const totalAmount = body.items.reduce((sum, item) => {
-      return sum + (item.price * item.quantity);
+      const priceWithVAT = item.price * (1 + VAT_RATE);
+      return sum + (priceWithVAT * item.quantity);
     }, 0);
 
     // Client IP al
     const clientIP = getClientIP(request);
     
-    // PayTR sepet formatı oluştur
+    // PayTR sepet formatı oluştur (KDV dahil fiyatlarla)
     const basketItems: PayTRBasketItem[] = body.items.map(item => ({
       name: item.name,
-      price: item.price,
+      price: item.price * (1 + VAT_RATE), // KDV dahil fiyat
       quantity: item.quantity
     }));
 
@@ -146,16 +150,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Sipariş ürünlerini kaydet
-    const orderItems = body.items.map(item => ({
-      order_id: orderData.id,
-      product_id: item.product_id,
-      product_name: item.name,
-      product_price: item.price,
-      unit_price: item.price,
-      quantity: item.quantity,
-      total_price: item.price * item.quantity
-    }));
+    // Sipariş ürünlerini kaydet (KDV dahil fiyatlarla)
+    const orderItems = body.items.map(item => {
+      const priceWithVAT = item.price * (1 + VAT_RATE);
+      return {
+        order_id: orderData.id,
+        product_id: item.product_id,
+        product_name: item.name,
+        product_price: priceWithVAT, // KDV dahil fiyat
+        unit_price: priceWithVAT, // KDV dahil fiyat
+        quantity: item.quantity,
+        total_price: priceWithVAT * item.quantity // KDV dahil toplam
+      };
+    });
 
     const { error: itemsError } = await supabase
       .from('order_items')

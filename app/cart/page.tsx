@@ -133,7 +133,7 @@ export default function CartPage() {
 
   if (items.length === 0) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 pt-[140px] sm:pt-[160px] md:pt-[180px] lg:pt-[200px]">        
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 pt-[180px] sm:pt-[200px] md:pt-[220px] lg:pt-[240px]">        
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
             {/* Empty cart illustration */}
@@ -210,7 +210,7 @@ export default function CartPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 py-8 sm:py-12 pt-[140px] sm:pt-[160px] md:pt-[180px] lg:pt-[200px]">
+      <div className="min-h-screen bg-gray-50 py-8 sm:py-12 pt-[180px] sm:pt-[200px] md:pt-[220px] lg:pt-[240px]">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-amber-500 mx-auto"></div>
@@ -222,7 +222,7 @@ export default function CartPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 sm:py-12 pt-[140px] sm:pt-[160px] md:pt-[180px] lg:pt-[200px]">
+    <div className="min-h-screen bg-gray-50 py-8 sm:py-12 pt-[180px] sm:pt-[200px] md:pt-[220px] lg:pt-[240px]">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="mb-6 sm:mb-8">
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Sepetim</h1>
@@ -263,9 +263,6 @@ export default function CartPage() {
                           <h3 className="font-medium text-gray-900 truncate text-sm sm:text-base">
                             {item.product.name}
                           </h3>
-                          <p className="text-xs sm:text-sm text-gray-600 mt-1 hidden sm:block">
-                            {item.product.description}
-                          </p>
                           <div className="flex items-center mt-2 space-x-4">
                             <span className="text-base sm:text-lg font-semibold text-gray-900">
                               {formatPrice(item.product.price)}
@@ -333,7 +330,7 @@ export default function CartPage() {
                 </div>
                 
                 <div className="flex justify-between">
-                  <span className="text-gray-600 text-sm sm:text-base">KDV (%10)</span>
+                  <span className="text-gray-600 text-sm sm:text-base">KDV (%20)</span>
                   <span className="font-medium text-gray-900 text-sm sm:text-base">{formatPrice(getVAT())}</span>
                 </div>
                 

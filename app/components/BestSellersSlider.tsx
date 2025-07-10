@@ -6,6 +6,8 @@ import { Navigation } from 'swiper/modules';
 import { useState } from 'react';
 import type { Swiper as SwiperType } from 'swiper';
 import { Product } from '@/lib/supabase';
+import { useCart } from '@/lib/cart-context';
+import CartModal from '@/components/CartModal';
 
 // Import Swiper styles
 import 'swiper/css';
@@ -20,6 +22,10 @@ interface BestSellersSliderProps {
 export default function BestSellersSlider({ products }: BestSellersSliderProps) {
   const [swiper, setSwiper] = useState<SwiperType | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
+  const [showCartModal, setShowCartModal] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [addingToCart, setAddingToCart] = useState<number | null>(null);
+  const { addToCart } = useCart();
 
   // Debug: Sadece gerekli olan image_url bilgisini göster
   console.log('BestSellersSlider - Total products:', products.length);
@@ -32,6 +38,40 @@ export default function BestSellersSlider({ products }: BestSellersSliderProps) 
   for (let i = 0; i < products.length; i += 4) {
     productGroups.push(products.slice(i, i + 4));
   }
+
+  const handleAddToCart = async (e: React.MouseEvent, product: Product) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    setAddingToCart(product.id);
+    try {
+      addToCart(product, 1);
+      setSelectedProduct(product);
+      setShowCartModal(true);
+    } catch (error) {
+      console.error('Error adding to cart:', error);
+      alert('Sepete eklenirken bir hata oluştu.');
+    } finally {
+      setAddingToCart(null);
+    }
+  };
+
+  const handleBuyNow = async (e: React.MouseEvent, product: Product) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    setAddingToCart(product.id);
+    try {
+      addToCart(product, 1);
+      // Redirect to cart page for immediate checkout
+      window.location.href = '/cart';
+    } catch (error) {
+      console.error('Error buying now:', error);
+      alert('Satın alma işlemi sırasında bir hata oluştu.');
+    } finally {
+      setAddingToCart(null);
+    }
+  };
 
   return (
     <div>
@@ -107,26 +147,26 @@ export default function BestSellersSlider({ products }: BestSellersSliderProps) 
                     {/* Action Buttons */}
                     <div className="flex gap-2">
                       <button 
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          // Sepete ekle fonksiyonu burada çağrılacak
-                          console.log('Sepete eklendi:', product.name);
-                        }}
-                        className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-800 py-2.5 px-4 rounded-full text-sm font-medium transition-colors duration-200"
+                        onClick={(e) => handleAddToCart(e, product)}
+                        disabled={!product.in_stock || addingToCart === product.id}
+                        className={`flex-1 py-2.5 px-4 rounded-full text-sm font-medium transition-colors duration-200 ${
+                          product.in_stock && addingToCart !== product.id
+                            ? 'bg-gray-100 hover:bg-gray-200 text-gray-800'
+                            : 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                        }`}
                       >
-                        Sepete Ekle
+                        {addingToCart === product.id ? 'Ekleniyor...' : product.in_stock ? 'Sepete Ekle' : 'Stokta Yok'}
                       </button>
                       <button 
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          // Satın al fonksiyonu burada çağrılacak
-                          console.log('Satın alındı:', product.name);
-                        }}
-                        className="flex-1 bg-gray-800 hover:bg-gray-900 text-white py-2.5 px-4 rounded-full text-sm font-medium transition-colors duration-200"
+                        onClick={(e) => handleBuyNow(e, product)}
+                        disabled={!product.in_stock || addingToCart === product.id}
+                        className={`flex-1 py-2.5 px-4 rounded-full text-sm font-medium transition-colors duration-200 ${
+                          product.in_stock && addingToCart !== product.id
+                            ? 'bg-gray-800 hover:bg-gray-900 text-white'
+                            : 'bg-gray-400 text-gray-500 cursor-not-allowed'
+                        }`}
                       >
-                        Satın Al
+                        {addingToCart === product.id ? 'İşleniyor...' : product.in_stock ? 'Satın Al' : 'Stokta Yok'}
                       </button>
                     </div>
                   </div>
@@ -172,6 +212,14 @@ export default function BestSellersSlider({ products }: BestSellersSliderProps) 
           </svg>
         </button>
       </div>
+
+      {/* Cart Modal */}
+      <CartModal
+        isOpen={showCartModal}
+        onClose={() => setShowCartModal(false)}
+        product={selectedProduct}
+        quantity={1}
+      />
     </div>
   );
 } 

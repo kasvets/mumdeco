@@ -48,7 +48,7 @@ export default function PaymentSuccessPage() {
   }, [router]);
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <div className="min-h-screen bg-gray-50 pt-24 py-8">
       <Suspense fallback={null}>
         <SearchParamsWrapper 
           setOrderInfo={setOrderInfo}

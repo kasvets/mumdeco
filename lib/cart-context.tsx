@@ -116,7 +116,7 @@ export const CartProvider = ({ children }: CartProviderProps) => {
   };
 
   const getVAT = () => {
-    return getSubtotal() * 0.10; // 10% VAT
+    return getSubtotal() * 0.20; // 20% VAT
   };
 
   const getTotal = () => {
