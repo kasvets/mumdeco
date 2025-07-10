@@ -628,7 +628,8 @@ export function logPayTRTransaction(
 
 // PayTR Environment Kontrolü
 export function isPayTRTestMode(): boolean {
-  return process.env.PAYTR_TEST_MODE === '1' || process.env.NODE_ENV === 'development';
+  // Sadece PAYTR_TEST_MODE değişkenini kontrol et, NODE_ENV'i karıştırma
+  return process.env.PAYTR_TEST_MODE === '1';
 }
 
 // PayTR Konfigürasyon Bilgilerini Al (Güvenli)
