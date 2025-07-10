@@ -3,7 +3,7 @@ import crypto from 'crypto';
 // PayTR Konfigürasyonu
 export const PAYTR_CONFIG = {
   TEST_URL: 'https://www.paytr.com/odeme/api/get-token',
-  PRODUCTION_URL: 'https://www.paytr.com/odeme/api/get-token',
+  PRODUCTION_URL: 'https://www.paytr.com/odeme/api/get-token', // Production da aynı URL
   IFRAME_URL: 'https://www.paytr.com/odeme/guvenli/',
   CURRENCY: {
     TRY: 'TL',
@@ -117,12 +117,10 @@ export function calculatePayTRHash(
   // PayTR token oluştur (salt ile birlikte)
   const paytr_token = hashSTR + merchant_salt;
   
-  // Production'da detaylı hash loglarını kısıtla
-  if (process.env.NODE_ENV === 'development') {
-    console.log('[PayTR HASH] Hash String:', hashSTR);
-    console.log('[PayTR HASH] PayTR Token (hashSTR + salt):', paytr_token);
-    console.log('[PayTR HASH] Secret Key (merchant_key):', merchant_key);
-  }
+  // PayTR'ye gönderilen parametreleri logla
+  console.log('[PayTR HASH] Hash String:', hashSTR);
+  console.log('[PayTR HASH] Test Mode Value:', test_mode);
+  console.log('[PayTR HASH] Merchant ID:', merchant_id);
   
   // HMAC-SHA256 hesaplama
   const token = crypto.createHmac('sha256', merchant_key).update(paytr_token).digest('base64');
@@ -357,7 +355,7 @@ async function getPayTRTokenInternal(
     const user_basket = userBasketString || createPayTRBasket(paymentRequest.user_basket);
     const no_installment = paymentRequest.no_installment || 1; // Çalışan projede 1
     const max_installment = paymentRequest.max_installment || 1; // Çalışan projede 1
-    const test_mode = paymentRequest.test_mode || 1; // Test için 1
+    const test_mode = paymentRequest.test_mode || 0; // Canlı mod için 0
     
     // PayTR tutar kuruş cinsinden gönderilmeli
     const payment_amount_kurus = paymentRequest.payment_amount * 100;
